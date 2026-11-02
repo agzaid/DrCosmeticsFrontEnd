@@ -1,0 +1,1601 @@
+{
+  "products": [
+    {
+      "id": "prod-1",
+      "name": {
+        "en": "Velvet Silk Matte Lipstick",
+        "ar": "أحمر شفاه حريري مخملي"
+      },
+      "brand": "Luma Signature",
+      "category": "makeup",
+      "subCategory": "Lipstick",
+      "description": {
+        "en": "A richly pigmented, hydrating matte lipstick that glides effortlessly on lips, leaving an ultra-comfortable velvety finish with 10-hour wear.",
+        "ar": "أحمر شفاه مخملي غني بالألوان ومرطب ينساب بسلاسة ويمنحك إطلالة راقية ومريحة تدوم حتى 10 ساعات."
+      },
+      "ingredients": {
+        "en": "Dimethicone, Isononyl Isononanoate, Jojoba Seed Oil, Shea Butter, Tocopheryl Acetate (Vitamin E), CI 77491, CI 15850.",
+        "ar": "دايميثيكون، زيت بذور الجوجوبا، زبدة الشيا، فيتامين هـ، أصباغ معدنية نقية."
+      },
+      "howToUse": {
+        "en": "Apply directly from the bullet starting in the center of your cupid’s bow and moving outward towards the corners.",
+        "ar": "ضعيه مباشرة على الشفاه بدءاً من المنتصف ثم باتجاه الأطراف لتحديد مثالي."
+      },
+      "price": 380,
+      "originalPrice": 450,
+      "rating": 4.9,
+      "reviewsCount": 128,
+      "images": [
+        "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-1-1",
+          "sku": "LUM-LIP-01",
+          "shadeName": {
+            "en": "Desert Rose",
+            "ar": "وردة الصحراء"
+          },
+          "shadeHex": "#BD6B73",
+          "size": "3.8g",
+          "price": 380,
+          "stock": 24
+        },
+        {
+          "id": "var-1-2",
+          "sku": "LUM-LIP-02",
+          "shadeName": {
+            "en": "Cairo Plum",
+            "ar": "برقوقي قاهري"
+          },
+          "shadeHex": "#7E3F50",
+          "size": "3.8g",
+          "price": 380,
+          "stock": 11
+        },
+        {
+          "id": "var-1-3",
+          "sku": "LUM-LIP-03",
+          "shadeName": {
+            "en": "Warm Nude",
+            "ar": "نيود دافئ"
+          },
+          "shadeHex": "#C58C7A",
+          "size": "3.8g",
+          "price": 380,
+          "stock": 18
+        },
+        {
+          "id": "var-1-4",
+          "sku": "LUM-LIP-04",
+          "shadeName": {
+            "en": "Scarlet Ruby",
+            "ar": "ياقوتي أحمر"
+          },
+          "shadeHex": "#A81C28",
+          "size": "3.8g",
+          "price": 380,
+          "stock": 0
+        }
+      ],
+      "finish": "matte",
+      "shadeFamily": "Berry",
+      "isFeatured": true,
+      "isBestSeller": true,
+      "status": "published",
+      "createdAt": "2026-09-01T10:00:00Z"
+    },
+    {
+      "id": "prod-2",
+      "name": {
+        "en": "Skin Radiance Satin Foundation",
+        "ar": "كريم أساس حريري مشرق"
+      },
+      "brand": "Luma Signature",
+      "category": "makeup",
+      "subCategory": "Foundation",
+      "description": {
+        "en": "A weightless liquid foundation offering medium-to-buildable coverage with a second-skin satin finish. Infused with hyaluronic acid and niacinamide.",
+        "ar": "كريم أساس سائل خفيف يوفر تغطية متوسطة قابلة للبناء بلمسة حريرية طبيعية تدوم طويلاً، معزز بحمض الهيالورونيك والنياسيناميد."
+      },
+      "ingredients": {
+        "en": "Water/Aqua, Cyclopentasiloxane, Hyaluronic Acid, Niacinamide, Glycerin, Titanium Dioxide, Iron Oxides.",
+        "ar": "ماء نقي، حمض الهيالورونيك، نياسيناميد، جلسرين نباتي، أكاسيد الحديد المقاومة للأكسدة."
+      },
+      "howToUse": {
+        "en": "Shake well before use. Dispense 1-2 pumps onto a beauty sponge or brush and blend from the center of the face outward.",
+        "ar": "رجي العبوة جيداً، ضعي ضخة أو ضختين على إسفنجة مبللة وادمجي من منتصف الوجه للخارج."
+      },
+      "price": 520,
+      "originalPrice": 580,
+      "rating": 4.8,
+      "reviewsCount": 94,
+      "images": [
+        "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-2-1",
+          "sku": "LUM-FND-10",
+          "shadeName": {
+            "en": "Fair Alabaster (10)",
+            "ar": "عاجي فاتح (10)"
+          },
+          "shadeHex": "#F6E4D1",
+          "size": "30ml",
+          "price": 520,
+          "stock": 14
+        },
+        {
+          "id": "var-2-2",
+          "sku": "LUM-FND-20",
+          "shadeName": {
+            "en": "Warm Sand (20)",
+            "ar": "رملي دافئ (20)"
+          },
+          "shadeHex": "#E8CAAA",
+          "size": "30ml",
+          "price": 520,
+          "stock": 22
+        },
+        {
+          "id": "var-2-3",
+          "sku": "LUM-FND-30",
+          "shadeName": {
+            "en": "Golden Almond (30)",
+            "ar": "لوزي ذهبي (30)"
+          },
+          "shadeHex": "#D4A881",
+          "size": "30ml",
+          "price": 520,
+          "stock": 19
+        },
+        {
+          "id": "var-2-4",
+          "sku": "LUM-FND-40",
+          "shadeName": {
+            "en": "Deep Bronze (40)",
+            "ar": "برونزي عميق (40)"
+          },
+          "shadeHex": "#9E6C4C",
+          "size": "30ml",
+          "price": 520,
+          "stock": 8
+        }
+      ],
+      "skinType": [
+        "all",
+        "combination",
+        "dry"
+      ],
+      "finish": "satin",
+      "coverage": "medium",
+      "isFeatured": true,
+      "status": "published",
+      "createdAt": "2026-09-05T10:00:00Z"
+    },
+    {
+      "id": "prod-3",
+      "name": {
+        "en": "Petal Touch Liquid Blush",
+        "ar": "بلاش سائل بتلات الورد"
+      },
+      "brand": "Velvet Rouge Paris",
+      "category": "makeup",
+      "subCategory": "Blush",
+      "description": {
+        "en": "A breathable, lightweight liquid blush that melts effortlessly into cheeks for a fresh, dewy flush that lasts all day.",
+        "ar": "أحمر خدود سائل خفيف الوزن يذوب بنعومة على البشرة ليمنحك وجنتين مورّدتين ومشرقتين بمظهر صحي وطبيعي."
+      },
+      "ingredients": {
+        "en": "Isododecane, Polyglyceryl-2 Triisostearate, Rosehip Seed Oil, Camellia Extract, Vitamin E.",
+        "ar": "إيزودوديكان، زيت بذور ثمر الورد، مستخلص الكاميليا، فيتامين هـ."
+      },
+      "howToUse": {
+        "en": "Dab 1-2 tiny dots on the high points of cheeks and tap gently using fingers or a damp sponge.",
+        "ar": "ضعي نقطة أو نقطتين على تفاحتي الخدين ثم ربتي بلطف بأطراف الأصابع أو بإسفنجة."
+      },
+      "price": 340,
+      "rating": 4.9,
+      "reviewsCount": 86,
+      "images": [
+        "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-3-1",
+          "sku": "VEL-BLS-01",
+          "shadeName": {
+            "en": "Blush Petal",
+            "ar": "بتلة زهرية"
+          },
+          "shadeHex": "#E8908B",
+          "size": "15ml",
+          "price": 340,
+          "stock": 16
+        },
+        {
+          "id": "var-3-2",
+          "sku": "VEL-BLS-02",
+          "shadeName": {
+            "en": "Spiced Coral",
+            "ar": "مرجاني دافئ"
+          },
+          "shadeHex": "#E27660",
+          "size": "15ml",
+          "price": 340,
+          "stock": 11
+        },
+        {
+          "id": "var-3-3",
+          "sku": "VEL-BLS-03",
+          "shadeName": {
+            "en": "Berry Haze",
+            "ar": "توتي دافئ"
+          },
+          "shadeHex": "#A24A61",
+          "size": "15ml",
+          "price": 340,
+          "stock": 5
+        }
+      ],
+      "finish": "dewy",
+      "shadeFamily": "Pink",
+      "isNewArrival": true,
+      "status": "published",
+      "createdAt": "2026-10-10T10:00:00Z"
+    },
+    {
+      "id": "prod-4",
+      "name": {
+        "en": "Flawless Crease-Proof Concealer",
+        "ar": "كونسيلر مقاوم للتكتل عالي التغطية"
+      },
+      "brand": "Luma Signature",
+      "category": "makeup",
+      "subCategory": "Concealer",
+      "description": {
+        "en": "A high-pigment liquid concealer that hides dark circles and blemishes seamlessly without settling into fine lines.",
+        "ar": "كونسيلر سائل فائق التغطية يخفي الهالات السوداء والعيوب بدون خطوط أو تكتل لمدة 16 ساعة."
+      },
+      "ingredients": {
+        "en": "Caffeine, Centella Asiatica, Peptides, Silica, Dimethicone.",
+        "ar": "كافيين منشط، مستخلص السنتيلا المهدئ، ببتيدات مغذية، سيليكا ناعمة."
+      },
+      "howToUse": {
+        "en": "Apply a dot to the inner and outer corners of under-eye area. Blend with finger pads or brush.",
+        "ar": "ضعي نقطة صغيرة في زاوية العين الداخلية والخارجية وادمجي بحركات طبطبة خفيفة."
+      },
+      "price": 310,
+      "rating": 4.7,
+      "reviewsCount": 71,
+      "images": [
+        "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-4-1",
+          "sku": "LUM-CON-01",
+          "shadeName": {
+            "en": "Light Ivory (01)",
+            "ar": "عاجي فاتح (01)"
+          },
+          "shadeHex": "#F6E4CE",
+          "size": "6ml",
+          "price": 310,
+          "stock": 20
+        },
+        {
+          "id": "var-4-2",
+          "sku": "LUM-CON-02",
+          "shadeName": {
+            "en": "Medium Biscuit (02)",
+            "ar": "بسكويت متوسط (02)"
+          },
+          "shadeHex": "#DFC19E",
+          "size": "6ml",
+          "price": 310,
+          "stock": 14
+        },
+        {
+          "id": "var-4-3",
+          "sku": "LUM-CON-03",
+          "shadeName": {
+            "en": "Honey Tan (03)",
+            "ar": "عسلي حنطي (03)"
+          },
+          "shadeHex": "#C59A72",
+          "size": "6ml",
+          "price": 310,
+          "stock": 9
+        }
+      ],
+      "finish": "natural",
+      "coverage": "full",
+      "status": "published",
+      "createdAt": "2026-09-12T10:00:00Z"
+    },
+    {
+      "id": "prod-5",
+      "name": {
+        "en": "Panoramic Lash Lift Mascara",
+        "ar": "ماسكارا بانورامية لرفع وتكثيف الرموش"
+      },
+      "brand": "Velvet Rouge Paris",
+      "category": "makeup",
+      "subCategory": "Mascara",
+      "description": {
+        "en": "Defines, lifts, and volumizes every single lash without clumping or smudging throughout humid weather.",
+        "ar": "ترفع وتكثف كل رمش بدقة متناهية وبدون تكتل أو تلطخ حتى في الأجواء الحارة والرطبة."
+      },
+      "ingredients": {
+        "en": "Carnauba Wax, Argan Oil, Panthenol (Pro-Vitamin B5), Iron Oxides.",
+        "ar": "شمع الكارنوبا الطبيعي، زيت الأرجان المغذي، برو فيتامين ب5، صبغة سوداء فاحمة."
+      },
+      "howToUse": {
+        "en": "Wiggle the brush from root to tip in a zig-zag motion. Apply 2 coats for dramatic drama.",
+        "ar": "حركي الفرشاة من جذور الرموش حتى الأطراف بحركة متعرجة، ضعي طبقة ثانية لإطلالة جذابة."
+      },
+      "price": 290,
+      "rating": 4.8,
+      "reviewsCount": 110,
+      "images": [
+        "https://images.unsplash.com/photo-1591360236480-4ed861025fa1?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-5-1",
+          "sku": "VEL-MSC-01",
+          "shadeName": {
+            "en": "Carbon Noir",
+            "ar": "أسود كربوني فاحم"
+          },
+          "shadeHex": "#1C1C1C",
+          "size": "10ml",
+          "price": 290,
+          "stock": 35
+        },
+        {
+          "id": "var-5-2",
+          "sku": "VEL-MSC-02",
+          "shadeName": {
+            "en": "Espresso Brown",
+            "ar": "بني شوكولاتة"
+          },
+          "shadeHex": "#3D251E",
+          "size": "10ml",
+          "price": 290,
+          "stock": 12
+        }
+      ],
+      "isBestSeller": true,
+      "status": "published",
+      "createdAt": "2026-09-15T10:00:00Z"
+    },
+    {
+      "id": "prod-6",
+      "name": {
+        "en": "Golden Oasis Eyeshadow Palette",
+        "ar": "باليت ظلال عيون الواحة الذهبية"
+      },
+      "brand": "Luma Signature",
+      "category": "makeup",
+      "subCategory": "Eyeshadow",
+      "description": {
+        "en": "9 buttery-smooth matte, metallic, and shimmer shades inspired by sunlit desert dunes and warm terracotta.",
+        "ar": "9 تدرجات ساحرة بين المطفي واللامع والمعدني مستوحاة من ألوان الرمال الذهبية والغروب الشرقي."
+      },
+      "ingredients": {
+        "en": "Mica, Talc, Zinc Stearate, Jojoba Oil, Caprylic Triglyceride.",
+        "ar": "ميكا نقية، زنك ستيرات، زيت الجوجوبا، جلسريدات دهنية نباتية."
+      },
+      "howToUse": {
+        "en": "Use a fluffy brush for crease transition shades and your fingertip for foiled metallic toppers.",
+        "ar": "استخدمي فرشاة دمج للتدرجات المطفية واستعيني بإصبعك لتطبيق الظلال اللامعة بكثافة."
+      },
+      "price": 640,
+      "originalPrice": 720,
+      "rating": 4.9,
+      "reviewsCount": 52,
+      "images": [
+        "https://images.unsplash.com/photo-1583241800698-e8ab01830a07?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-6-1",
+          "sku": "LUM-PAL-01",
+          "shadeName": {
+            "en": "Full 9-Shade Palette",
+            "ar": "باليت كاملة 9 ألوان"
+          },
+          "size": "12g",
+          "price": 640,
+          "stock": 15
+        }
+      ],
+      "isFeatured": true,
+      "status": "published",
+      "createdAt": "2026-09-20T10:00:00Z"
+    },
+    {
+      "id": "prod-7",
+      "name": {
+        "en": "Hydra-Rose Gentle Milk Cleanser",
+        "ar": "غسول حليبي مرطب بماء الورد"
+      },
+      "brand": "GlowLab Botanicals",
+      "category": "skincare",
+      "subCategory": "Cleanser",
+      "description": {
+        "en": "A pH-balanced, non-foaming cleansing lotion that sweeps away impurities and makeup while replenishing moisture.",
+        "ar": "منظف حليبي لطيف متوازن الحموضة يزيل الشوائب والمكياج بلطف مع الحفاظ على حاجز البشرة وترطيبها."
+      },
+      "ingredients": {
+        "en": "Organic Damask Rose Water, Oat Kernel Extract, Glycerin, Ceramides NP, Squalane.",
+        "ar": "ماء الورد الدمشقي العضوي، مستخلص الشوفان، سيراميدات، سكوالان نباتي."
+      },
+      "howToUse": {
+        "en": "Massage 1-2 pumps onto damp skin in circular motions. Rinse thoroughly with lukewarm water.",
+        "ar": "دلكي ضخة واحدة على بشرة رطبة بحركات دائرية لمدة دقيقة ثم اشطفي بالماء الفاتر."
+      },
+      "price": 360,
+      "rating": 4.8,
+      "reviewsCount": 95,
+      "images": [
+        "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-7-1",
+          "sku": "GLO-CLN-150",
+          "size": "150ml Standard",
+          "price": 360,
+          "stock": 28
+        },
+        {
+          "id": "var-7-2",
+          "sku": "GLO-CLN-300",
+          "size": "300ml Jumbo Value",
+          "price": 580,
+          "stock": 14
+        }
+      ],
+      "skinType": [
+        "all",
+        "dry",
+        "sensitive"
+      ],
+      "isBestSeller": true,
+      "status": "published",
+      "createdAt": "2026-08-15T10:00:00Z"
+    },
+    {
+      "id": "prod-8",
+      "name": {
+        "en": "Clear Radiance 10% Niacinamide Serum",
+        "ar": "سيروم نياسيناميد 10% لتوحيد وتصفية البشرة"
+      },
+      "brand": "GlowLab Botanicals",
+      "category": "skincare",
+      "subCategory": "Serum",
+      "description": {
+        "en": "A concentrated clinical serum to minimize enlarged pores, reduce redness, regulate sebum, and fade post-blemish spots.",
+        "ar": "سيروم عالي التركيز لتضييق المسام، تنظيم إفراز الدهون، تفتيح التصبغات وتهدئة البشرة المعرضة للحبوب."
+      },
+      "ingredients": {
+        "en": "Niacinamide 10%, Zinc PCA 1%, Licorice Root Extract, Hyaluronic Acid.",
+        "ar": "نياسيناميد 10%، زنك بي سي إيه 1%، خلاصة العرقسوس، حمض الهيالورونيك."
+      },
+      "howToUse": {
+        "en": "Apply 3-4 drops morning and evening to face before heavy creams.",
+        "ar": "ضعي 3 إلى 4 قطرات صباحاً ومساءً على بشرة نظيفة قبل الكريم المرطب."
+      },
+      "price": 420,
+      "rating": 4.9,
+      "reviewsCount": 140,
+      "images": [
+        "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-8-1",
+          "sku": "GLO-SRM-30",
+          "size": "30ml",
+          "price": 420,
+          "stock": 22
+        },
+        {
+          "id": "var-8-2",
+          "sku": "GLO-SRM-50",
+          "size": "50ml",
+          "price": 610,
+          "stock": 10
+        }
+      ],
+      "skinType": [
+        "oily",
+        "combination",
+        "all"
+      ],
+      "isFeatured": true,
+      "status": "published",
+      "createdAt": "2026-08-20T10:00:00Z"
+    },
+    {
+      "id": "prod-9",
+      "name": {
+        "en": "Water-Drench Hyaluronic Cloud Gel",
+        "ar": "جل مرطب فائق بحمض الهيالورونيك والسيراميد"
+      },
+      "brand": "K-Pure Derma",
+      "category": "skincare",
+      "subCategory": "Moisturizer",
+      "description": {
+        "en": "An ultra-refreshing water-burst gel cream delivering 72 hours of intense hydration without any greasy residue.",
+        "ar": "كريم جل مائي فائق الانتعاش يمنح ترطيباً عميقاً يستمر 72 ساعة بدون أي ملمس دهني."
+      },
+      "ingredients": {
+        "en": "Multi-Molecular Weight Hyaluronic Acid, Centella Asiatica, Green Tea Extract, Trehalose.",
+        "ar": "حمض هيالورونيك متعدد الأوزان الجزيئية، سنتيلا أسياتيكا، شاي أخضر كوري، تريهالوز."
+      },
+      "howToUse": {
+        "en": "Smooth over face and neck morning and night after serums.",
+        "ar": "وزعي كمية مناسبة على الوجه والرقبة صباحاً ومساءً بعد السيروم."
+      },
+      "price": 490,
+      "originalPrice": 550,
+      "rating": 4.9,
+      "reviewsCount": 88,
+      "images": [
+        "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-9-1",
+          "sku": "KPU-MST-50",
+          "size": "50ml",
+          "price": 490,
+          "stock": 30
+        }
+      ],
+      "skinType": [
+        "all",
+        "dry",
+        "oily",
+        "sensitive"
+      ],
+      "status": "published",
+      "createdAt": "2026-09-02T10:00:00Z"
+    },
+    {
+      "id": "prod-10",
+      "name": {
+        "en": "Invisible Fluid Sunscreen SPF 50+ PA++++",
+        "ar": "واقي شمس سائل شفاف غير مرئي SPF 50+"
+      },
+      "brand": "K-Pure Derma",
+      "category": "skincare",
+      "subCategory": "Sunscreen",
+      "description": {
+        "en": "Zero white cast, non-sticky sunscreen fluid with broad spectrum UV protection and antioxidant blue-light shield.",
+        "ar": "سائل واقي شمس بدون أي أثر أبيض ولا يترك ملمساً لزجاً، يوفر حماية فائقة ضد الأشعة فوق البنفسجية والضوء الأزرق."
+      },
+      "ingredients": {
+        "en": "Uvinul A Plus, Tinosorb S, Niacinamide, Adenosine, Birch Juice.",
+        "ar": "فلاتر شمسية حديثة آمنة، نياسيناميد، أدينوزين، عصارة شجر البتولا المرطبة."
+      },
+      "howToUse": {
+        "en": "Apply two finger lengths to face and neck as the last step of morning skincare. Reapply every 2 hours outdoors.",
+        "ar": "ضعي مقدار خطين على طول إصبعين على الوجه والرقبة كخطوة أخيرة صباحاً، وجددي كل ساعتين عند التعرض للشمس."
+      },
+      "price": 450,
+      "rating": 5,
+      "reviewsCount": 162,
+      "images": [
+        "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-10-1",
+          "sku": "KPU-SUN-50",
+          "size": "50ml",
+          "price": 450,
+          "stock": 40
+        }
+      ],
+      "skinType": [
+        "all",
+        "oily",
+        "sensitive"
+      ],
+      "isFeatured": true,
+      "isBestSeller": true,
+      "status": "published",
+      "createdAt": "2026-09-10T10:00:00Z"
+    },
+    {
+      "id": "prod-11",
+      "name": {
+        "en": "Golden Argan Deep Repair Hair Mask",
+        "ar": "ماسك الأرجان والكراتين المعالج للشعر"
+      },
+      "brand": "Botanica Haircare",
+      "category": "haircare",
+      "subCategory": "Mask",
+      "description": {
+        "en": "Intensive restorative treatment for dry, damaged, or chemically treated hair. Restores silky elasticity and brilliant shine.",
+        "ar": "علاج مكثف للشعر الجاف والتالف والمجهد، يعيد النعومة واللمعان الطبيعي ويقلل التقصف من أول استخدام."
+      },
+      "ingredients": {
+        "en": "Pure Moroccan Argan Oil, Hydrolyzed Keratin, Shea Butter, Biotin, Provitamin B5.",
+        "ar": "زيت أرجان مغربي نقي، كيراتين متحلل، زبدة الشيا، بيوتين، برو فيتامين ب5."
+      },
+      "howToUse": {
+        "en": "After shampooing, apply generously from mid-lengths to ends. Leave for 5-10 minutes, then rinse thoroughly.",
+        "ar": "بعد غسل الشعر بالشامبو، وزعي كمية كافية من منتصف الشعر حتى الأطراف، اتركيه 10 دقائق ثم اشطفي جيداً."
+      },
+      "price": 390,
+      "rating": 4.8,
+      "reviewsCount": 67,
+      "images": [
+        "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-11-1",
+          "sku": "BOT-MSK-250",
+          "size": "250ml Jar",
+          "price": 390,
+          "stock": 19
+        },
+        {
+          "id": "var-11-2",
+          "sku": "BOT-MSK-500",
+          "size": "500ml Salon Size",
+          "price": 650,
+          "stock": 8
+        }
+      ],
+      "isFeatured": true,
+      "status": "published",
+      "createdAt": "2026-08-25T10:00:00Z"
+    },
+    {
+      "id": "prod-12",
+      "name": {
+        "en": "Moisture Lock Sulfate-Free Shampoo",
+        "ar": "شامبو مرطب خالي من السلفات والسيليكون"
+      },
+      "brand": "Botanica Haircare",
+      "category": "haircare",
+      "subCategory": "Shampoo",
+      "description": {
+        "en": "Gentle clarifying shampoo that cleanses without stripping natural oils or dulling color-treated hair.",
+        "ar": "شامبو لطيف ينظف فروة الرأس بدون تجريد الزيوت الطبيعية أو بهتان لون الصبغة، غني بمستخلص جوز الهند."
+      },
+      "ingredients": {
+        "en": "Sodium Cocoyl Isethionate, Aloe Vera Juice, Coconut Extract, Rosemary Leaf Oil.",
+        "ar": "منظفات مشتقة من جوز الهند، عصارة الصبار، زيت إكليل الجبل، بروتين القمح."
+      },
+      "howToUse": {
+        "en": "Massage into scalp and wet hair until rich foam forms. Rinse and follow with conditioner.",
+        "ar": "دلكي فروة الرأس والشعر المبلل برغوة غنية واشطفي، اتبعيه بالبلسم المفضل لديك."
+      },
+      "price": 290,
+      "rating": 4.6,
+      "reviewsCount": 45,
+      "images": [
+        "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-12-1",
+          "sku": "BOT-SHP-300",
+          "size": "300ml",
+          "price": 290,
+          "stock": 25
+        }
+      ],
+      "status": "published",
+      "createdAt": "2026-09-01T10:00:00Z"
+    },
+    {
+      "id": "prod-13",
+      "name": {
+        "en": "Silk Elixir Hair Gloss Oil",
+        "ar": "سيروم زيت الحرير للمعان وحماية الحرارة"
+      },
+      "brand": "Botanica Haircare",
+      "category": "haircare",
+      "subCategory": "Oil",
+      "description": {
+        "en": "A non-greasy finishing oil that tames flyaways, seals split ends, and provides thermal defense up to 230°C.",
+        "ar": "زيت علاجي خفيف لا يترك أثراً دهنياً، يروض التطاير ويحمي الشعر من حرارة أجهزة التصفيف حتى 230 درجة مئوية."
+      },
+      "ingredients": {
+        "en": "Camellia Seed Oil, Marula Oil, Jojoba Oil, Fragrance.",
+        "ar": "زيت بذور الكاميليا، زيت المارولا النقي، زيت الجوجوبا، عطر دافئ."
+      },
+      "howToUse": {
+        "en": "Work 2-3 drops through towel-dried or dry ends before styling.",
+        "ar": "ضعي قطرتين إلى ثلاث قطرات على أطراف الشعر الرطب أو الجاف قبل التصفيف."
+      },
+      "price": 380,
+      "rating": 4.9,
+      "reviewsCount": 82,
+      "images": [
+        "https://images.unsplash.com/photo-1608248597359-0f4886638ce8?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-13-1",
+          "sku": "BOT-OIL-50",
+          "size": "50ml Glass Dropper",
+          "price": 380,
+          "stock": 16
+        }
+      ],
+      "isNewArrival": true,
+      "status": "published",
+      "createdAt": "2026-10-15T10:00:00Z"
+    },
+    {
+      "id": "prod-14",
+      "name": {
+        "en": "Royal Oud & Damask Rose Eau de Parfum",
+        "ar": "عطر العود الملكي والورد الدمشقي"
+      },
+      "brand": "Maison Orient",
+      "category": "fragrance",
+      "subCategory": "Perfume",
+      "description": {
+        "en": "An opulent blend of smoky agarwood, velvety crimson roses, warm amber, and golden saffron. Unforgettable sillage.",
+        "ar": "توليفة ساحرة تجمع بين فخامة العود الطبيعي ودفء الورد الجوري والعنبر مع لمسة زعفران أصيل. ثبات استثنائي."
+      },
+      "ingredients": {
+        "en": "Alcohol Denat., Parfum/Fragrance, Damask Rose Absolute, Oud Essential Oil, Ambergris Accord.",
+        "ar": "كحول نقي، خلاصات عطرية فاخرة، خلاصة الورد الدمشقي، زيت العود الطبيعي، عنبر."
+      },
+      "howToUse": {
+        "en": "Spritz on pulse points (wrists, neck, behind ears). Avoid rubbing wrists together.",
+        "ar": "رشي على أماكن النبض كالمعصمين والرقبة وخلف الأذنين، تجنبي فرك المعصمين للحفاظ على جزيئات العطر."
+      },
+      "price": 1150,
+      "originalPrice": 1350,
+      "rating": 5,
+      "reviewsCount": 175,
+      "images": [
+        "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-14-1",
+          "sku": "MAI-OUD-50",
+          "size": "50ml EDP",
+          "price": 1150,
+          "stock": 12
+        },
+        {
+          "id": "var-14-2",
+          "sku": "MAI-OUD-100",
+          "size": "100ml EDP",
+          "price": 1850,
+          "stock": 6
+        }
+      ],
+      "isFeatured": true,
+      "isBestSeller": true,
+      "status": "published",
+      "createdAt": "2026-07-20T10:00:00Z"
+    },
+    {
+      "id": "prod-15",
+      "name": {
+        "en": "Golden Vanilla & Cashmere Body Mist",
+        "ar": "معطر الجسم بالفانيليا الدافئة والكشمير"
+      },
+      "brand": "Maison Orient",
+      "category": "fragrance",
+      "subCategory": "Mist",
+      "description": {
+        "en": "Warm, comforting bourbon vanilla swirled with toasted macadamia and soft white musk. Enriched with aloe vera.",
+        "ar": "رذاذ معطر للجسم غني بنفحات الفانيليا الذهبية والمكسرات المحمصة والمسك الأبيض مع خلاصة الصبار المنعشة."
+      },
+      "ingredients": {
+        "en": "Aqua, Alcohol Denat., Fragrance, Aloe Barbadensis Leaf Juice, Glycerin.",
+        "ar": "ماء، كحول نقي، زيوت عطرية، عصارة الصبار، جلسرين نباتي مرطب."
+      },
+      "howToUse": {
+        "en": "Spray liberally over body and hair after shower for an enchanting aura.",
+        "ar": "رشي بسخاء على كامل الجسم والشعر بعد الاستحمام لتستمتعي بهالة عطرية ساحرة طوال اليوم."
+      },
+      "price": 320,
+      "rating": 4.8,
+      "reviewsCount": 94,
+      "images": [
+        "https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-15-1",
+          "sku": "MAI-MST-250",
+          "size": "250ml Mist",
+          "price": 320,
+          "stock": 30
+        }
+      ],
+      "isNewArrival": true,
+      "status": "published",
+      "createdAt": "2026-10-01T10:00:00Z"
+    },
+    {
+      "id": "prod-16",
+      "name": {
+        "en": "Jasmine Breeze Eau de Toilette",
+        "ar": "عطر نسيم الياسمين وزهر البرتقال"
+      },
+      "brand": "Maison Orient",
+      "category": "fragrance",
+      "subCategory": "Perfume",
+      "description": {
+        "en": "A crisp, uplifting floral symphony of night-blooming Egyptian jasmine, sparkling neroli, and sun-kissed bergamot.",
+        "ar": "سيمفونية زهرية منعشة من الياسمين البلدي المصري وزهر البرتقال مع لمسة برغموت مشمسة تبعث البهجة."
+      },
+      "ingredients": {
+        "en": "Alcohol Denat., Water, Fragrance, Jasmine Extract, Citrus Aurantium Oil.",
+        "ar": "كحول نقي، ماء معقم، عطر نقي، خلاصة الياسمين وزهر الليمون."
+      },
+      "howToUse": {
+        "en": "Spray onto collarbones and wrists for a fresh daytime companion.",
+        "ar": "رشي على المعصمين والرقبة لإشراقة صباحية صيفية منعشة."
+      },
+      "price": 890,
+      "rating": 4.7,
+      "reviewsCount": 39,
+      "images": [
+        "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-16-1",
+          "sku": "MAI-JAS-50",
+          "size": "50ml EDT",
+          "price": 890,
+          "stock": 14
+        }
+      ],
+      "status": "published",
+      "createdAt": "2026-09-18T10:00:00Z"
+    },
+    {
+      "id": "prod-17",
+      "name": {
+        "en": "Velvet Cloud Microfiber Blending Sponge",
+        "ar": "إسفنجة دمج مخملية فائقة النعومة"
+      },
+      "brand": "Silk Artisans",
+      "category": "tools",
+      "subCategory": "Sponge",
+      "description": {
+        "en": "Dual-ended latex-free teardrop sponge coated with microscopic velvet fibers that deposit 50% less makeup for maximum seamless coverage.",
+        "ar": "إسفنجة خالية من اللاتكس بألياف ميكروفيبر مخملية توفر 50% من استهلاك مستحضرات التجميل وتمنح دمجاً انسيابياً."
+      },
+      "ingredients": {
+        "en": "Hydrophilic Polyurethane, Microfiber Flock.",
+        "ar": "بولي يوريثان مائي طبي خالي من اللاتكس، ألياف قطيفة دقيقة."
+      },
+      "howToUse": {
+        "en": "Wet sponge until it expands, squeeze out excess water with a towel, and bounce gently onto skin.",
+        "ar": "بللي الإسفنجة بالماء حتى يتضاعف حجمها، اعصري الفائض بمنشفة ثم ادمجي المستحضرات بحركات خفيفة."
+      },
+      "price": 150,
+      "originalPrice": 190,
+      "rating": 4.9,
+      "reviewsCount": 210,
+      "images": [
+        "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-17-1",
+          "sku": "SLK-SPG-PNK",
+          "shadeName": {
+            "en": "Blush Pink",
+            "ar": "وردي ناعم"
+          },
+          "shadeHex": "#F2B8C6",
+          "size": "Single Sponge",
+          "price": 150,
+          "stock": 45
+        },
+        {
+          "id": "var-17-2",
+          "sku": "SLK-SPG-BLK",
+          "shadeName": {
+            "en": "Midnight Plum",
+            "ar": "برقوقي داكن"
+          },
+          "shadeHex": "#3E2538",
+          "size": "Single Sponge",
+          "price": 150,
+          "stock": 25
+        },
+        {
+          "id": "var-17-3",
+          "sku": "SLK-SPG-SET",
+          "shadeName": {
+            "en": "Duo Pack (Pink & Plum)",
+            "ar": "مجموعة ثنائية"
+          },
+          "size": "2-Pack",
+          "price": 270,
+          "stock": 20
+        }
+      ],
+      "isBestSeller": true,
+      "status": "published",
+      "createdAt": "2026-08-01T10:00:00Z"
+    },
+    {
+      "id": "prod-18",
+      "name": {
+        "en": "Artisan 8-Piece Luxury Vegan Brush Set",
+        "ar": "طقم فرش مكياج نباتي فاخر 8 قطع مع حقيبة"
+      },
+      "brand": "Silk Artisans",
+      "category": "tools",
+      "subCategory": "Brushes",
+      "description": {
+        "en": "Handcrafted ultra-soft synthetic bristles that mimic natural squirrel hair. Includes travel pouch and brushes for powder, foundation, eyes, and brows.",
+        "ar": "شعيرات صناعية فائقة النعومة تحاكي الشعر الطبيعي. يتضمن حقيبة جلدية وفرش كاملة للوجه والعيون والحواجب."
+      },
+      "ingredients": {
+        "en": "FSC-Certified Birchwood Handles, Recycled Aluminum Ferrules, DermaFibre Synthetic Bristles.",
+        "ar": "خشب طبيعي معتمد، حلقات ألومنيوم معالجة، شعيرات نباتية ناعمة لا تسبب حساسية."
+      },
+      "howToUse": {
+        "en": "Use specific brushes for powders and creams. Wash weekly with mild brush soap and dry flat.",
+        "ar": "استخدمي كل فرشاة للغرض المخصص لها، واغسليها أسبوعياً بصابون لطيف وجففيها في وضع أفقي."
+      },
+      "price": 680,
+      "originalPrice": 850,
+      "rating": 4.9,
+      "reviewsCount": 78,
+      "images": [
+        "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-18-1",
+          "sku": "SLK-BRS-08",
+          "size": "8 Brushes + Pouch",
+          "price": 680,
+          "stock": 18
+        }
+      ],
+      "isFeatured": true,
+      "status": "published",
+      "createdAt": "2026-09-08T10:00:00Z"
+    },
+    {
+      "id": "prod-19",
+      "name": {
+        "en": "Sculpt & Lift Rose Gold Lash Curler",
+        "ar": "مكبس رموش روز جولد احترافي مع وسائد سيليكون"
+      },
+      "brand": "Silk Artisans",
+      "category": "tools",
+      "subCategory": "Lash Tools",
+      "description": {
+        "en": "Engineered curve fits all eye shapes to deliver a sweeping curl with zero pinching or crimping. Includes 3 replacement silicone pads.",
+        "ar": "تصميم مقوس مريح يناسب جميع أشكال العيون لمنحك رموش مقوسة بدون أي شد أو تكسير. يشمل 3 وسائد سيليكون بديلة."
+      },
+      "ingredients": {
+        "en": "Stainless Steel, Premium Silicone.",
+        "ar": "ستانلس ستيل مطلي بالروز جولد، وسائد سيليكون ناعمة ومرنة."
+      },
+      "howToUse": {
+        "en": "Position open curler at base of bare lashes. Press gently for 5 seconds. Apply mascara after curling.",
+        "ar": "ضعي المكبس عند جذور الرموش النظيفة واضغطي بلطف لمدة 5 ثوانٍ قبل وضع الماسكارا."
+      },
+      "price": 190,
+      "rating": 4.8,
+      "reviewsCount": 92,
+      "images": [
+        "https://images.unsplash.com/photo-1591360236480-4ed861025fa1?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-19-1",
+          "sku": "SLK-CRL-RG",
+          "size": "Standard",
+          "price": 190,
+          "stock": 32
+        }
+      ],
+      "status": "published",
+      "createdAt": "2026-09-22T10:00:00Z"
+    },
+    {
+      "id": "prod-20",
+      "name": {
+        "en": "Diamond Shimmer Glass Lip Gloss",
+        "ar": "ملمع شفاه زجاجي ببريق الألماس"
+      },
+      "brand": "Luma Signature",
+      "category": "makeup",
+      "subCategory": "Lipstick",
+      "description": {
+        "en": "High-shine, cushiony gloss that delivers a glass-like mirror finish without stickiness. Infused with coconut and peppermint oil.",
+        "ar": "ملمع شفاه يمنح بريقاً زجاجياً عاكساً للضوء وامتلاء جذاب بدون لزوجة، غني بزيت جوز الهند والنعناع المنعش."
+      },
+      "ingredients": {
+        "en": "Polybutene, Mineral Oil, Mentha Piperita Oil, Jojoba Oil, Calcium Sodium Borosilicate.",
+        "ar": "بوليبوتين، زيت النعناع الفلفلي، زيت الجوجوبا، حبيبات بريق ناعمة."
+      },
+      "howToUse": {
+        "en": "Glide onto bare lips or layer over your favorite lipstick for an instant high-gloss finish.",
+        "ar": "مرريه على الشفاه بمفرده أو فوق أحمر الشفاه لإضفاء لمعان ممتلئ وجذاب."
+      },
+      "price": 260,
+      "rating": 4.7,
+      "reviewsCount": 54,
+      "images": [
+        "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-20-1",
+          "sku": "LUM-GLS-01",
+          "shadeName": {
+            "en": "Crystal Clear",
+            "ar": "شفاف كريستالي"
+          },
+          "shadeHex": "#FFFFFF",
+          "size": "5ml",
+          "price": 260,
+          "stock": 22
+        },
+        {
+          "id": "var-20-2",
+          "sku": "LUM-GLS-02",
+          "shadeName": {
+            "en": "Golden Nectar",
+            "ar": "عسل ذهبي"
+          },
+          "shadeHex": "#E5A671",
+          "size": "5ml",
+          "price": 260,
+          "stock": 18
+        },
+        {
+          "id": "var-20-3",
+          "sku": "LUM-GLS-03",
+          "shadeName": {
+            "en": "Sparkling Rose",
+            "ar": "وردي لامع"
+          },
+          "shadeHex": "#E4889C",
+          "size": "5ml",
+          "price": 260,
+          "stock": 15
+        }
+      ],
+      "finish": "radiant",
+      "shadeFamily": "Pink",
+      "status": "published",
+      "createdAt": "2026-10-05T10:00:00Z"
+    },
+    {
+      "id": "prod-21",
+      "name": {
+        "en": "Resurfacing 7% Glycolic Glow Toner",
+        "ar": "تونر مقشر بحمض الجليكوليك 7% لنضارة البشرة"
+      },
+      "brand": "GlowLab Botanicals",
+      "category": "skincare",
+      "subCategory": "Toner",
+      "description": {
+        "en": "An exfoliating toner targeting surface texture, unclogging pores, and reviving dull skin with Tasmanian Pepperberry.",
+        "ar": "تونر مقشر يومي لطيف ينعم ملمس البشرة ويعيد إليها نضارتها الطبيعية بمستخلص التوت التسماني المهدئ."
+      },
+      "ingredients": {
+        "en": "Aqua, Glycolic Acid 7%, Aloe Barbadensis Leaf Water, Panax Ginseng Extract, Tasmanian Pepperberry.",
+        "ar": "حمض جليكوليك نقي 7%، ماء الصبار، مستخلص الجينسنغ، توت تسماني مهدئ."
+      },
+      "howToUse": {
+        "en": "Saturate a cotton pad and sweep across face and neck in the evening. Always wear SPF the next morning.",
+        "ar": "بللي قطعة قطن ومرريها على الوجه والرقبة مساءً. احرصي دائماً على وضع واقي الشمس في الصباح التالي."
+      },
+      "price": 380,
+      "rating": 4.8,
+      "reviewsCount": 63,
+      "images": [
+        "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-21-1",
+          "sku": "GLO-TNR-240",
+          "size": "240ml",
+          "price": 380,
+          "stock": 25
+        }
+      ],
+      "skinType": [
+        "all",
+        "oily",
+        "combination"
+      ],
+      "status": "published",
+      "createdAt": "2026-09-25T10:00:00Z"
+    },
+    {
+      "id": "prod-22",
+      "name": {
+        "en": "Rose Quartz Sculpting Roller & Gua Sha Set",
+        "ar": "طقم رولر وجوا شا من حجر الكوارتز الوردي الطبيعي"
+      },
+      "brand": "Silk Artisans",
+      "category": "tools",
+      "subCategory": "Facial Tools",
+      "description": {
+        "en": "Hand-carved 100% natural Brazilian rose quartz roller and heart-shaped gua sha tool to boost lymphatic drainage, reduce morning puffiness, and sculpt jawline.",
+        "ar": "أداة رولر وجوا شا منحوتة يدوياً من حجر الكوارتز الوردي الطبيعي البرازيلي لتنشيط الدورة الدموية وتحديد ملامح الوجه."
+      },
+      "ingredients": {
+        "en": "100% Authentic Brazilian Rose Quartz, Welded Zinc Alloy Frame.",
+        "ar": "حجر كوارتز وردي برازيلي أصلي 100%، إطار معدني متين مقاوم للصدأ."
+      },
+      "howToUse": {
+        "en": "Apply facial oil or serum first. Roll gently upward and outward from the center of face.",
+        "ar": "ضعي زيت الوجه أو السيروم أولاً، ثم مرري الرولر بلطف من منتصف الوجه للخارج وللأعلى."
+      },
+      "price": 450,
+      "originalPrice": 520,
+      "rating": 4.9,
+      "reviewsCount": 114,
+      "images": [
+        "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=800&q=80"
+      ],
+      "variants": [
+        {
+          "id": "var-22-1",
+          "sku": "SLK-QRT-SET",
+          "size": "Roller + Gua Sha + Box",
+          "price": 450,
+          "stock": 17
+        }
+      ],
+      "isFeatured": true,
+      "status": "published",
+      "createdAt": "2026-08-30T10:00:00Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": "makeup",
+      "name": {
+        "en": "Makeup",
+        "ar": "مكياج"
+      },
+      "description": {
+        "en": "Lipsticks, foundations, concealers, blush & palettes",
+        "ar": "أحمر شفاه، كريمات أساس، كونسيلر، بلاش وباليتات"
+      },
+      "iconName": "Sparkles",
+      "imageUrl": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      "id": "skincare",
+      "name": {
+        "en": "Skincare",
+        "ar": "عناية بالبشرة"
+      },
+      "description": {
+        "en": "Cleansers, serums, moisturizers & sunscreens",
+        "ar": "منظفات، سيرومات، مرطبات وواقيات شمس"
+      },
+      "iconName": "Droplets",
+      "imageUrl": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      "id": "haircare",
+      "name": {
+        "en": "Haircare",
+        "ar": "عناية بالشعر"
+      },
+      "description": {
+        "en": "Nourishing masks, treatment oils & shampoos",
+        "ar": "ماسكات مغذية، زيوت علاجية وشامبوهات"
+      },
+      "iconName": "Flame",
+      "imageUrl": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      "id": "fragrance",
+      "name": {
+        "en": "Fragrance & Body",
+        "ar": "عطور وعناية بالجسم"
+      },
+      "description": {
+        "en": "Exquisite oriental notes & body mists",
+        "ar": "عطور شرقية وزهرية فاخرة ومعطرات جسم"
+      },
+      "iconName": "Heart",
+      "imageUrl": "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      "id": "tools",
+      "name": {
+        "en": "Beauty Tools",
+        "ar": "أدوات وإكسسوارات"
+      },
+      "description": {
+        "en": "Sponges, vegan brushes & lash curlers",
+        "ar": "إسفنجات دمج، فرش نباتية وأدوات احترافية"
+      },
+      "iconName": "Scissors",
+      "imageUrl": "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=600&q=80"
+    }
+  ],
+  "brands": [
+    {
+      "id": "luma-signature",
+      "name": "Luma Signature",
+      "origin": "Egypt / France"
+    },
+    {
+      "id": "glowlab",
+      "name": "GlowLab Botanicals",
+      "origin": "Switzerland"
+    },
+    {
+      "id": "velvet-rouge",
+      "name": "Velvet Rouge Paris",
+      "origin": "France"
+    },
+    {
+      "id": "k-pure",
+      "name": "K-Pure Derma",
+      "origin": "South Korea"
+    },
+    {
+      "id": "maison-orient",
+      "name": "Maison Orient",
+      "origin": "Egypt / UAE"
+    },
+    {
+      "id": "silk-artisans",
+      "name": "Silk Artisans",
+      "origin": "Italy"
+    }
+  ],
+  "banners": [
+    {
+      "id": "banner-1",
+      "title": {
+        "en": "Timeless Radiance Collection",
+        "ar": "مجموعة الإشراقة الخالدة"
+      },
+      "subtitle": {
+        "en": "Nourish your skin with hydrating tints and satin finishes designed for warmth and all-day wear.",
+        "ar": "تألقي ببشرة حريرية ولمسات دافئة تدوم طوال اليوم بتركيبات غنية بالمرطبات الطبيعية."
+      },
+      "badge": {
+        "en": "NEW SEASON",
+        "ar": "الموسم الجديد"
+      },
+      "ctaText": {
+        "en": "Explore Collection",
+        "ar": "تسوقي المجموعة"
+      },
+      "ctaCategory": "makeup",
+      "imageUrl": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1600&q=80",
+      "discountCode": "WELCOME15",
+      "active": true,
+      "order": 1
+    },
+    {
+      "id": "banner-2",
+      "title": {
+        "en": "Summer Glow & Daily Defense",
+        "ar": "إشراقة الصيف والحماية اليومية"
+      },
+      "subtitle": {
+        "en": "Invisible SPF 50+ and soothing hyaluronic formulas tailored for Mediterranean sun.",
+        "ar": "حماية خفيفة غير مرئية SPF 50+ مع حمض الهيالورونيك لترطيب البشرة وحمايتها."
+      },
+      "badge": {
+        "en": "BEST SELLER",
+        "ar": "الأكثر مبيعاً"
+      },
+      "ctaText": {
+        "en": "Shop Skincare",
+        "ar": "تسوقي العناية بالبشرة"
+      },
+      "ctaCategory": "skincare",
+      "imageUrl": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=1600&q=80",
+      "discountCode": "GLOW10",
+      "active": true,
+      "order": 2
+    }
+  ],
+  "discountCodes": [
+    {
+      "code": "WELCOME15",
+      "type": "percentage",
+      "value": 15,
+      "minOrderAmount": 300,
+      "maxDiscount": 150,
+      "expiryDate": "2028-12-31T23:59:59Z",
+      "usageLimit": 500,
+      "currentUsage": 34,
+      "active": true
+    },
+    {
+      "code": "LUMA50",
+      "type": "fixed",
+      "value": 50,
+      "minOrderAmount": 400,
+      "expiryDate": "2028-12-31T23:59:59Z",
+      "usageLimit": 300,
+      "currentUsage": 19,
+      "active": true
+    },
+    {
+      "code": "GLOW10",
+      "type": "percentage",
+      "value": 10,
+      "minOrderAmount": 200,
+      "maxDiscount": 80,
+      "expiryDate": "2028-12-31T23:59:59Z",
+      "usageLimit": 1000,
+      "currentUsage": 82,
+      "active": true
+    }
+  ],
+  "users": [
+    {
+      "id": "user-admin",
+      "email": "admin@lumabeauty.com",
+      "fullName": "Luma Store Administrator",
+      "mobileNumber": "01001234567",
+      "role": "admin",
+      "addresses": [],
+      "wishlist": []
+    },
+    {
+      "id": "user-customer",
+      "email": "sarah@example.com",
+      "fullName": "Sarah Ahmed",
+      "mobileNumber": "01012345678",
+      "role": "customer",
+      "addresses": [
+        {
+          "id": "addr-1",
+          "label": "Home",
+          "fullName": "Sarah Ahmed",
+          "mobileNumber": "01012345678",
+          "governorate": "Cairo",
+          "city": "New Cairo",
+          "streetAddress": "Street 90, South Academy, Villa 14",
+          "buildingApt": "Apt 2B, 2nd Floor",
+          "deliveryNotes": "Please ring bell twice",
+          "isDefault": true
+        }
+      ],
+      "wishlist": [
+        "prod-1",
+        "prod-7",
+        "prod-14"
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "id": "ord-1793405636807-335295",
+      "orderNumber": "LUM-335295",
+      "customerEmail": "guest@lumabeauty.com",
+      "shippingAddress": {
+        "fullName": "Nour El Din",
+        "mobileNumber": "01099887766",
+        "governorate": "Cairo",
+        "city": "Heliopolis",
+        "streetAddress": "50 El Nozha Street, Building 12",
+        "buildingApt": "",
+        "deliveryNotes": ""
+      },
+      "items": [
+        {
+          "id": "prod-1_var-1-2",
+          "productId": "prod-1",
+          "productName": {
+            "en": "Velvet Silk Matte Lipstick",
+            "ar": "أحمر شفاه حريري مخملي"
+          },
+          "brand": "Luma Signature",
+          "variantId": "var-1-2",
+          "variantSku": "LUM-LIP-02",
+          "shadeName": {
+            "en": "Cairo Plum",
+            "ar": "برقوقي قاهري"
+          },
+          "shadeHex": "#7E3F50",
+          "size": "3.8g",
+          "unitPrice": 380,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=800&q=80",
+          "stock": 12
+        }
+      ],
+      "subtotal": 380,
+      "discountAmount": 0,
+      "deliveryFee": 50,
+      "total": 430,
+      "paymentMethod": "cash_on_delivery",
+      "status": "Pending",
+      "statusHistory": [
+        {
+          "status": "Pending",
+          "changedAt": "2026-10-31T00:13:56.807Z",
+          "note": "Order placed by customer via Cash on Delivery"
+        }
+      ],
+      "stockRestored": false,
+      "createdAt": "2026-10-31T00:13:56.807Z",
+      "updatedAt": "2026-10-31T00:13:56.807Z"
+    },
+    {
+      "id": "ord-1001",
+      "orderNumber": "LUM-849201",
+      "customerId": "user-customer",
+      "customerEmail": "sarah@example.com",
+      "shippingAddress": {
+        "fullName": "Sarah Ahmed",
+        "mobileNumber": "01012345678",
+        "governorate": "Cairo",
+        "city": "New Cairo",
+        "streetAddress": "Street 90, South Academy, Villa 14",
+        "buildingApt": "Apt 2B, 2nd Floor",
+        "deliveryNotes": "Leave with concierge if not available"
+      },
+      "items": [
+        {
+          "id": "prod-1_var-1-1",
+          "productId": "prod-1",
+          "productName": {
+            "en": "Velvet Silk Matte Lipstick",
+            "ar": "أحمر شفاه حريري مخملي"
+          },
+          "brand": "Luma Signature",
+          "variantId": "var-1-1",
+          "variantSku": "LUM-LIP-01",
+          "shadeName": {
+            "en": "Desert Rose",
+            "ar": "وردة الصحراء"
+          },
+          "shadeHex": "#BD6B73",
+          "size": "3.8g",
+          "unitPrice": 380,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=400&q=80",
+          "stock": 24
+        },
+        {
+          "id": "prod-7_var-7-1",
+          "productId": "prod-7",
+          "productName": {
+            "en": "Hydra-Rose Gentle Milk Cleanser",
+            "ar": "غسول حليبي مرطب بماء الورد"
+          },
+          "brand": "GlowLab Botanicals",
+          "variantId": "var-7-1",
+          "variantSku": "GLO-CLN-150",
+          "size": "150ml Standard",
+          "unitPrice": 360,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=400&q=80",
+          "stock": 28
+        }
+      ],
+      "subtotal": 740,
+      "discountAmount": 111,
+      "discountCode": "WELCOME15",
+      "deliveryFee": 0,
+      "total": 629,
+      "paymentMethod": "cash_on_delivery",
+      "status": "Delivered",
+      "statusHistory": [
+        {
+          "status": "Pending",
+          "changedAt": "2026-10-24T12:00:00Z",
+          "note": "Order placed by customer"
+        },
+        {
+          "status": "Confirmed",
+          "changedAt": "2026-10-24T13:30:00Z",
+          "note": "Verified and packed at Cairo warehouse"
+        },
+        {
+          "status": "Shipped",
+          "changedAt": "2026-10-25T09:15:00Z",
+          "note": "Dispatched with Bosta Express"
+        },
+        {
+          "status": "Delivered",
+          "changedAt": "2026-10-26T14:40:00Z",
+          "note": "Delivered and cash collected"
+        }
+      ],
+      "createdAt": "2026-10-24T12:00:00Z",
+      "updatedAt": "2026-10-26T14:40:00Z"
+    },
+    {
+      "id": "ord-1002",
+      "orderNumber": "LUM-849202",
+      "customerEmail": "mariam.h@example.com",
+      "shippingAddress": {
+        "fullName": "Mariam Hassan",
+        "mobileNumber": "01123456789",
+        "governorate": "Giza",
+        "city": "Sheikh Zayed",
+        "streetAddress": "Beverly Hills Compound, Zone 3",
+        "buildingApt": "Building 12, Apt 4",
+        "deliveryNotes": "Call before delivery"
+      },
+      "items": [
+        {
+          "id": "prod-10_var-10-1",
+          "productId": "prod-10",
+          "productName": {
+            "en": "Invisible Fluid Sunscreen SPF 50+ PA++++",
+            "ar": "واقي شمس سائل شفاف غير مرئي SPF 50+"
+          },
+          "brand": "K-Pure Derma",
+          "variantId": "var-10-1",
+          "variantSku": "KPU-SUN-50",
+          "size": "50ml",
+          "unitPrice": 450,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=400&q=80",
+          "stock": 40
+        }
+      ],
+      "subtotal": 450,
+      "discountAmount": 0,
+      "deliveryFee": 50,
+      "total": 500,
+      "paymentMethod": "cash_on_delivery",
+      "status": "Shipped",
+      "statusHistory": [
+        {
+          "status": "Pending",
+          "changedAt": "2026-10-29T16:10:00Z",
+          "note": "Guest order submitted"
+        },
+        {
+          "status": "Confirmed",
+          "changedAt": "2026-10-29T17:00:00Z",
+          "note": "Stock reserved"
+        },
+        {
+          "status": "Shipped",
+          "changedAt": "2026-10-30T10:00:00Z",
+          "note": "Out for delivery today"
+        }
+      ],
+      "createdAt": "2026-10-29T16:10:00Z",
+      "updatedAt": "2026-10-30T10:00:00Z"
+    }
+  ],
+  "idempotencyKeys": {
+    "idemp_1793405634472_p5lhqf04a0b": {
+      "orderId": "ord-1793405636807-335295",
+      "createdAt": "2026-10-31T00:13:56.807Z"
+    }
+  }
+}

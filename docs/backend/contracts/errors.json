@@ -1,0 +1,330 @@
+{
+  "$comment": "RFC 9457 Problem Details for every failure class. Content-Type: application/problem+json. No SQL, stack trace, credential or internal identifier ever appears in 'detail'.",
+  "validationFailed": {
+    "http": 400,
+    "body": {
+      "type": "https://lumabeauty.local/errors/validation-failed",
+      "title": "One or more fields are invalid",
+      "status": 400,
+      "detail": "Please complete all required shipping information",
+      "instance": "/api/v1/orders",
+      "errorCode": "ValidationFailed",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "errors": {
+        "fullName": [
+          "Full name must be at least 3 characters"
+        ],
+        "mobileNumber": [
+          "Please enter a valid 11-digit Egyptian mobile number (e.g., 01012345678)"
+        ],
+        "governorate": [
+          "Please select a governorate"
+        ],
+        "city": [
+          "Please enter your city/district"
+        ],
+        "streetAddress": [
+          "Please enter a detailed street address"
+        ]
+      }
+    }
+  },
+  "invalidQuantity": {
+    "http": 400,
+    "body": {
+      "type": "https://lumabeauty.local/errors/invalid-quantity",
+      "title": "Invalid quantity",
+      "status": 400,
+      "detail": "Quantity must be a whole number between 1 and 99.",
+      "instance": "/api/v1/orders",
+      "errorCode": "InvalidQuantity",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "errors": {
+        "items[0].quantity": [
+          "Quantity must be a whole number between 1 and 99."
+        ]
+      }
+    }
+  },
+  "insufficientStock": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/insufficient-stock",
+      "title": "Insufficient stock",
+      "status": 409,
+      "detail": "Only 1 remaining for \"Velvet Silk Matte Lipstick\" (Cairo Plum).",
+      "instance": "/api/v1/orders",
+      "errorCode": "InsufficientStock",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "errors": {
+        "items[0].quantity": [
+          "Requested 2 but only 1 is available."
+        ]
+      },
+      "context": {
+        "variantId": "var-1-2",
+        "requested": 2,
+        "available": 1
+      }
+    }
+  },
+  "idempotencyKeyReuse": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/idempotency-key-reuse",
+      "title": "Idempotency key reused with a different payload",
+      "status": 409,
+      "detail": "This idempotency key was already used for a different request. Start a new checkout attempt.",
+      "instance": "/api/v1/orders",
+      "errorCode": "IdempotencyKeyReuse",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "context": {
+        "existingOrderId": "ord-1793405639999-100001"
+      }
+    }
+  },
+  "checkoutInProgress": {
+    "http": 409,
+    "headers": {
+      "Retry-After": "2"
+    },
+    "body": {
+      "type": "https://lumabeauty.local/errors/checkout-in-progress",
+      "title": "Checkout already in progress",
+      "status": 409,
+      "detail": "A checkout with this key is still being processed. Retry in a moment.",
+      "instance": "/api/v1/orders",
+      "errorCode": "CheckoutInProgress",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "quoteChanged": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/quote-changed",
+      "title": "Prices changed since the quote",
+      "status": 409,
+      "detail": "The total is now 390 EGP instead of 373 EGP. Review and accept the updated quote to continue.",
+      "instance": "/api/v1/orders",
+      "errorCode": "QuoteChanged",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "context": {
+        "previousTotal": 373,
+        "currentTotal": 390,
+        "changedFields": [
+          "lines[0].unitPrice"
+        ]
+      },
+      "quote": {
+        "subtotal": 400,
+        "discountAmount": 60,
+        "deliveryFee": 50,
+        "total": 390,
+        "currency": "EGP"
+      },
+      "quoteToken": "v1.eyJzdWJ0b3RhbCI6NDAwfQ.c2lnbmF0dXJl",
+      "expiresAt": "2026-10-31T12:15:00.000Z"
+    }
+  },
+  "quoteExpired": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/quote-expired",
+      "title": "Quote expired",
+      "status": 409,
+      "detail": "This quote has expired. Request a new quote to continue.",
+      "instance": "/api/v1/orders",
+      "errorCode": "QuoteExpired",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "couponNotApplicable": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/coupon-not-applicable",
+      "title": "Coupon cannot be applied",
+      "status": 409,
+      "detail": "This coupon usage limit has been reached.",
+      "instance": "/api/v1/orders",
+      "errorCode": "CouponNotApplicable",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "context": {
+        "code": "GLOW10"
+      }
+    }
+  },
+  "invalidOrderTransition": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/invalid-order-transition",
+      "title": "Invalid order status transition",
+      "status": 409,
+      "detail": "An order in 'Shipped' cannot move to 'Pending'.",
+      "instance": "/api/v1/admin/orders/ord-1002/status",
+      "errorCode": "InvalidOrderTransition",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "context": {
+        "from": "Shipped",
+        "to": "Pending"
+      }
+    }
+  },
+  "paymentCollectedCannotCancel": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/payment-collected-cannot-cancel",
+      "title": "Order cannot be cancelled",
+      "status": 409,
+      "detail": "Payment has already been collected for this order. Refunds are not available in this release.",
+      "instance": "/api/v1/orders/ord-1001/cancel",
+      "errorCode": "PaymentCollectedCannotCancel",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "paymentNotEligible": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/payment-not-eligible",
+      "title": "Payment cannot be collected yet",
+      "status": 409,
+      "detail": "Cash is collected only after the order is shipped or delivered.",
+      "instance": "/api/v1/admin/orders/ord-1793405636807-335295/payment/collect",
+      "errorCode": "PaymentNotEligible",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "context": {
+        "status": "Pending"
+      }
+    }
+  },
+  "inventoryConflict": {
+    "http": 409,
+    "body": {
+      "type": "https://lumabeauty.local/errors/inventory-conflict",
+      "title": "Stock changed since it was loaded",
+      "status": 409,
+      "detail": "The variant stock was modified by another operation. Reload and try again.",
+      "instance": "/api/v1/admin/inventory/adjust",
+      "errorCode": "InventoryConflict",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      "context": {
+        "variantId": "var-1-2",
+        "expectedVersion": "AAAAAAAAB9E=",
+        "currentVersion": "AAAAAAAAB9I="
+      }
+    }
+  },
+  "unauthorized": {
+    "http": 401,
+    "body": {
+      "type": "https://lumabeauty.local/errors/not-authenticated",
+      "title": "Not authenticated",
+      "status": 401,
+      "detail": "Sign in to continue.",
+      "instance": "/api/v1/customer/orders",
+      "errorCode": "NotAuthenticated",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "forbidden": {
+    "http": 403,
+    "body": {
+      "type": "https://lumabeauty.local/errors/forbidden",
+      "title": "Forbidden",
+      "status": 403,
+      "detail": "Administrator access is required.",
+      "instance": "/api/v1/admin/metrics",
+      "errorCode": "Forbidden",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "notFound": {
+    "http": 404,
+    "body": {
+      "type": "https://lumabeauty.local/errors/not-found",
+      "title": "Not found",
+      "status": 404,
+      "detail": "The requested resource was not found.",
+      "instance": "/api/v1/orders/ord-does-not-exist",
+      "errorCode": "NotFound",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "internalError": {
+    "http": 500,
+    "body": {
+      "type": "https://lumabeauty.local/errors/internal-error",
+      "title": "An unexpected error occurred",
+      "status": 500,
+      "detail": "The request could not be completed. Quote the trace identifier when contacting support.",
+      "instance": "/api/v1/orders",
+      "errorCode": "InternalError",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "csrfFailure": {
+    "$comment": "Cookie-authenticated unsafe request without a valid antiforgery token.",
+    "http": 400,
+    "body": {
+      "type": "https://lumabeauty.local/errors/csrf-verification-failed",
+      "title": "Request could not be verified",
+      "status": 400,
+      "detail": "Refresh the page and try again.",
+      "instance": "/api/v1/customer/addresses",
+      "errorCode": "CsrfVerificationFailed",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "ownershipHidden": {
+    "$comment": "Another customer's order, or a guest order without the owning guest cookie. Deliberately indistinguishable from a missing resource.",
+    "http": 404,
+    "body": {
+      "type": "https://lumabeauty.local/errors/not-found",
+      "title": "Not found",
+      "status": 404,
+      "detail": "The requested resource was not found.",
+      "instance": "/api/v1/orders/ord-1001",
+      "errorCode": "NotFound",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "rateLimited": {
+    "http": 429,
+    "headers": {
+      "Retry-After": "37"
+    },
+    "body": {
+      "type": "https://lumabeauty.local/errors/rate-limited",
+      "title": "Too many requests",
+      "status": 429,
+      "detail": "Too many requests. Please wait a moment and try again.",
+      "instance": "/api/v1/auth/login",
+      "errorCode": "RateLimited",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "outcomeUnknown": {
+    "$comment": "The database commit was not acknowledged and its result could not be verified. The operation was NOT repeated; reload to see what was saved, or retry a checkout with the same idempotency key (it replays).",
+    "http": 503,
+    "body": {
+      "type": "https://lumabeauty.local/errors/outcome-unknown",
+      "title": "The result could not be confirmed",
+      "status": 503,
+      "detail": "We could not confirm whether this change was saved. Reload to see its current state before trying again.",
+      "instance": "/api/v1/admin/inventory/adjust",
+      "errorCode": "OutcomeUnknown",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
+  "payloadTooLarge": {
+    "http": 413,
+    "body": {
+      "type": "https://lumabeauty.local/errors/payload-too-large",
+      "title": "Request failed",
+      "status": 413,
+      "detail": "The request is too large.",
+      "instance": "/api/v1/admin/uploads",
+      "errorCode": "PayloadTooLarge",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  }
+}

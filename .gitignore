@@ -1,0 +1,22 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+# Environment files are committed (they hold only the API address); local overrides are not.
+.env.local
+.env.*.local
+
+# .NET build output and runtime data
+**/bin/
+**/obj/
+**/*.user
+.vs/
+backend/src/LumaBeauty.Api/App_Data/
+
+# Build and release artifacts
+artifacts/
+
+# AI Studio scratch space (temporary screenshots, not source)
+.aistudio/

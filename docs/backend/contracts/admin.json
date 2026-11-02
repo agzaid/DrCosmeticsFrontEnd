@@ -1,0 +1,270 @@
+{
+  "$comment": "Administration contracts. All require the Admin policy; a customer receives 403 Forbidden.",
+  "metrics": {
+    "method": "GET",
+    "path": "/api/v1/admin/metrics",
+    "response200": {
+      "metrics": {
+        "totalSales": 1559,
+        "totalOrders": 3,
+        "averageOrderValue": 519.67,
+        "ordersByStatus": { "Pending": 1, "Confirmed": 0, "Shipped": 1, "Delivered": 1, "Cancelled": 0 },
+        "lowStockCount": 1,
+        "totalProducts": 22,
+        "collectedRevenue": 629,
+        "lowStockItems": [
+          {
+            "productId": "prod-3",
+            "productName": { "en": "Velvet Blush", "ar": "بلاشر فيلفت" },
+            "variantSku": "VEL-BLS-03",
+            "shadeName": { "en": "Berry Haze", "ar": "توتي دافئ" },
+            "size": "15ml",
+            "stock": 5
+          }
+        ]
+      }
+    },
+    "semantics": {
+      "totalSales": "sum of Total for orders whose status is not Cancelled (order value, not collected cash)",
+      "totalOrders": "all orders, every status",
+      "averageOrderValue": "totalSales / count(non-cancelled), rounded to 2 dp; 0 when there are none",
+      "ordersByStatus": "all five keys always present, zero when unused",
+      "lowStockCount": "active variants with 0 < stock <= 5 (zero-stock variants are out of stock, not low stock — matches shopLogic.checkStockStatus)",
+      "totalProducts": "products whose status is not archived",
+      "collectedRevenue": "sum of Total where paymentStatus = Collected"
+    }
+  },
+  "inventoryAdjust": {
+    "deltaMode": {
+      "method": "POST",
+      "path": "/api/v1/admin/inventory/adjust",
+      "request": {
+        "productId": "prod-1",
+        "variantId": "var-1-2",
+        "delta": 5,
+        "reason": "Stock received from supplier"
+      },
+      "response200": {
+        "product": {
+          "id": "prod-1",
+          "variants": [
+            { "id": "var-1-2", "sku": "LUM-LIP-02", "stock": 16, "isActive": true }
+          ]
+        }
+      },
+      "sql": "UPDATE ProductVariants SET Stock = Stock + @delta, UpdatedAtUtc = SYSUTCDATETIME() WHERE Id = @variantId AND Stock + @delta >= 0"
+    },
+    "absoluteMode": {
+      "method": "POST",
+      "path": "/api/v1/admin/inventory/adjust",
+      "request": {
+        "productId": "prod-1",
+        "variantId": "var-1-2",
+        "newStock": 20,
+        "expectedVersion": "AAAAAAAAB9E=",
+        "reason": "Physical stock count"
+      },
+      "response200": {
+        "product": {
+          "id": "prod-1",
+          "variants": [
+            { "id": "var-1-2", "sku": "LUM-LIP-02", "stock": 20, "isActive": true, "version": "AAAAAAAAB9M=" }
+          ]
+        }
+      },
+      "conflict": "stale expectedVersion → 409 InventoryConflict (see errors.json)"
+    },
+    "rules": {
+      "reject": "delta = 0 or newStock < 0 → 400 ValidationFailed",
+      "audit": "every accepted adjustment appends InventoryAdjustments { variantId, delta, previousStock, newStock, reason, actorId, occurredAtUtc }",
+      "concurrency": "a concurrent checkout deduction is never overwritten silently: absolute mode is version-guarded, delta mode is atomic arithmetic"
+    }
+  },
+  "orderStatus": {
+    "method": "PATCH",
+    "path": "/api/v1/admin/orders/ord-1002/status",
+    "request": { "status": "Delivered", "note": "Handed to courier, signed for" },
+    "response200": {
+      "order": {
+        "id": "ord-1002",
+        "orderNumber": "LUM-849202",
+        "status": "Delivered",
+        "paymentStatus": "Unpaid",
+        "updatedAt": "2026-10-31T14:00:00.000Z",
+        "statusHistory": [
+          { "status": "Pending", "changedAt": "2026-06-01T09:00:00.000Z", "note": null },
+          { "status": "Confirmed", "changedAt": "2026-06-01T10:00:00.000Z", "note": null },
+          { "status": "Shipped", "changedAt": "2026-06-02T08:00:00.000Z", "note": null },
+          { "status": "Delivered", "changedAt": "2026-10-31T14:00:00.000Z", "note": "Handed to courier, signed for" }
+        ]
+      }
+    },
+    "legalTransitions": {
+      "Pending": ["Confirmed", "Cancelled"],
+      "Confirmed": ["Shipped", "Cancelled"],
+      "Shipped": ["Delivered"],
+      "Delivered": [],
+      "Cancelled": []
+    },
+    "notes": "Shipping or delivering never sets paymentStatus. An illegal transition returns 409 InvalidOrderTransition."
+  },
+  "paymentCollect": {
+    "method": "POST",
+    "path": "/api/v1/admin/orders/ord-1002/payment/collect",
+    "request": { "amount": 500, "note": "Cash received by courier" },
+    "response200": {
+      "order": {
+        "id": "ord-1002",
+        "status": "Delivered",
+        "paymentStatus": "Collected",
+        "paymentCollectedAt": "2026-10-31T14:05:00.000Z",
+        "total": 500,
+        "currency": "EGP"
+      }
+    },
+    "eligibility": "status ∈ { Shipped, Delivered } AND paymentStatus = Unpaid",
+    "replay": "same amount again → 200 with the existing record; different amount → 409 PaymentConflict",
+    "blocked": "status Pending → 409 PaymentNotEligible; collected then cancel → 409 PaymentCollectedCannotCancel"
+  },
+  "products": {
+    "list": {
+      "method": "GET",
+      "path": "/api/v1/admin/products?status=all&search=lip&page=1&pageSize=24",
+      "response200": {
+        "products": [
+          {
+            "id": "prod-1",
+            "name": { "en": "Velvet Silk Matte Lipstick", "ar": "أحمر شفاه حريري مخملي" },
+            "brand": "Luma Signature",
+            "category": "makeup",
+            "status": "published",
+            "price": 380,
+            "variants": [
+              { "id": "var-1-2", "sku": "LUM-LIP-02", "price": 380, "stock": 11, "isActive": true }
+            ]
+          }
+        ],
+        "page": 1,
+        "pageSize": 24,
+        "total": 1,
+        "totalPages": 1
+      },
+      "notes": "status accepts published | archived | all. This is the only place archived products are visible."
+    },
+    "create": {
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "request": {
+        "name": { "en": "Silk Setting Powder", "ar": "بودرة تثبيت حريرية" },
+        "brand": "Luma Signature",
+        "category": "makeup",
+        "subCategory": "Powder",
+        "description": { "en": "Finely milled translucent powder.", "ar": "بودرة شفافة ناعمة." },
+        "ingredients": { "en": "Talc, Silica.", "ar": "تالك، سيليكا." },
+        "howToUse": { "en": "Dust over the T-zone.", "ar": "ضعيها على منطقة T." },
+        "price": 320,
+        "originalPrice": null,
+        "images": ["https://example.com/powder.jpg"],
+        "skinType": ["all"],
+        "isFeatured": false,
+        "isNewArrival": true,
+        "isBestSeller": false,
+        "status": "published",
+        "variants": [
+          {
+            "sku": "LUM-PWD-01",
+            "shadeName": null,
+            "shadeHex": null,
+            "size": "8g",
+            "price": 320,
+            "stock": 30,
+            "isActive": true
+          }
+        ]
+      },
+      "response201": { "product": { "$ref": "catalog.json#/detail/response200/product" } },
+      "rules": {
+        "defaultVariant": "a product always has at least one purchasable variant; when no options exist it is the single default variant",
+        "brand": "must resolve to an existing brand (slug or exact name); unknown brand → 400 ValidationFailed on 'brand'",
+        "sku": "uppercase-normalised, unique (binary collation); duplicate → 409",
+        "price": "variant price is authoritative; the product price is the displayed 'from' price"
+      }
+    },
+    "update": {
+      "method": "PUT",
+      "path": "/api/v1/admin/products/prod-1",
+      "request": { "$comment": "Full replace of supplied fields. Variants are matched by id; omitted variants are preserved, never deleted implicitly. Explicit removal requires isActive=false." },
+      "response200": { "product": { "$ref": "catalog.json#/detail/response200/product" } }
+    },
+    "archive": {
+      "method": "DELETE",
+      "path": "/api/v1/admin/products/prod-1",
+      "response200": {
+        "product": { "id": "prod-1", "status": "archived" }
+      },
+      "notes": "Archival, never deletion: historical orders keep resolving product and variant ids."
+    }
+  },
+  "imageUpload": {
+    "method": "POST",
+    "path": "/api/v1/admin/images",
+    "request": "multipart/form-data with a single 'file' part",
+    "response201": { "url": "/media/products/7f3c1d92-4a1b-4e0f-9c2d-6b8e5a4f1c33.webp" },
+    "rules": {
+      "validation": "magic-byte content sniffing, allow-list image/jpeg|image/png|image/webp, max 5 MB (configurable)",
+      "naming": "server-generated GUID + extension from the sniffed type; the client filename is never used",
+      "serving": "static files from the configured upload root only; path traversal rejected",
+      "storage": "IImageStorage interface; LocalImageStorage writes under Uploads:RootPath and survives restart"
+    },
+    "errors": { "400": "ValidationFailed (type/size)", "413": "payload too large", "403": "Forbidden" }
+  },
+  "discounts": {
+    "list": { "method": "GET", "path": "/api/v1/admin/discounts", "response200": { "discounts": [{ "code": "WELCOME15", "type": "percentage", "value": 15, "minOrderAmount": 300, "maxDiscount": 150, "expiryDate": "2028-12-31T23:59:59.000Z", "usageLimit": 500, "currentUsage": 34, "active": true }] } },
+    "create": {
+      "method": "POST",
+      "path": "/api/v1/admin/discounts",
+      "request": { "code": "spring20", "type": "percentage", "value": 20, "minOrderAmount": 500, "maxDiscount": 200, "expiryDate": "2027-04-30T23:59:59.000Z", "usageLimit": 100, "active": true },
+      "response201": { "discount": { "code": "SPRING20", "type": "percentage", "value": 20, "currentUsage": 0 } },
+      "rules": {
+        "normalisation": "code trimmed and upper-cased",
+        "validation": "value > 0; percentage ≤ 100; minOrderAmount ≥ 0; expiry in the future",
+        "uniqueness": "duplicate code → 409"
+      }
+    },
+    "archive": {
+      "method": "DELETE",
+      "path": "/api/v1/admin/discounts/SPRING20",
+      "response200": { "discount": { "code": "SPRING20", "active": false } },
+      "notes": "Sets active=false. Rows and redemptions are retained so historical orders keep their discountCode."
+    }
+  },
+  "banners": {
+    "list": { "method": "GET", "path": "/api/v1/admin/banners", "response200": { "banners": [{ "id": "banner-1", "active": true, "order": 1 }] }, "notes": "Includes inactive banners; the public endpoint returns active only." },
+    "save": {
+      "method": "PUT",
+      "path": "/api/v1/admin/banners",
+      "request": {
+        "banners": [
+          {
+            "id": "banner-1",
+            "title": { "en": "Timeless Radiance Collection", "ar": "مجموعة الإشراقة الخالدة" },
+            "subtitle": { "en": "Hydrating tints and satin finishes.", "ar": "لمسات مرطبة ولمعة ساتان." },
+            "badge": { "en": "NEW SEASON", "ar": "الموسم الجديد" },
+            "ctaText": { "en": "Explore Collection", "ar": "تسوقي المجموعة" },
+            "ctaCategory": "makeup",
+            "imageUrl": "/media/banners/summer.webp",
+            "discountCode": "WELCOME15",
+            "active": true,
+            "order": 1
+          }
+        ]
+      },
+      "response200": { "banners": [{ "id": "banner-1", "active": true, "order": 1 }] },
+      "rules": {
+        "replace": "the supplied array is the complete set; ids present in the request are updated, new ids created, and rows absent from the request are deactivated (never deleted)",
+        "localization": "all four localized fields keep both en and ar",
+        "discountCode": "must exist when supplied"
+      }
+    }
+  }
+}

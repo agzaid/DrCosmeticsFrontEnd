@@ -1,0 +1,109 @@
+{
+  "$comment": "POST /api/v1/orders — atomic order placement. Header X-Idempotency-Key required. Replay precedes any expiry/stock re-check.",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/orders",
+    "headers": {
+      "X-Idempotency-Key": "a3f1c2d4-5e6b-4c7d-8e9f-0a1b2c3d4e5f",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "items": [{ "variantId": "var-1-2", "quantity": 1 }],
+      "shippingAddress": {
+        "fullName": "Sara Ahmed",
+        "mobileNumber": "01012345678",
+        "governorate": "Cairo",
+        "city": "Nasr City",
+        "streetAddress": "12 El-Nasr Street, Apt 4",
+        "buildingApt": "Apt 4",
+        "deliveryNotes": "Call before delivery"
+      },
+      "discountCode": "WELCOME15",
+      "customerEmail": "sara@example.com",
+      "quoteToken": "v1.eyJsaW5lcyI6W3sidmFyaWFudElkIjoidmFyLTEtMiIsInF1YW50aXR5IjoxfV0sInN1YnRvdGFsIjozODAsImRpc2NvdW50QW1vdW50Ijo1NywiZGVsaXZlcnlGZWUiOjUwLCJ0b3RhbCI6MzczLCJjdXJyZW5jeSI6IkVHUCIsImlzc3VlZEF0IjoiMjAyNi0xMC0zMVQxMjowMDowMC4wMDBaIiwiZXhwaXJlc0F0IjoiMjAyNi0xMC0zMVQxMjoxNTowMC4wMDBaIn0.Zm9vYmFyYmF6c2lnbmF0dXJl"
+    }
+  },
+  "response201_created": {
+    "order": {
+      "id": "ord-1793405639999-100001",
+      "orderNumber": "LUM-100001",
+      "customerId": null,
+      "customerEmail": "sara@example.com",
+      "shippingAddress": {
+        "fullName": "Sara Ahmed",
+        "mobileNumber": "01012345678",
+        "governorate": "Cairo",
+        "city": "Nasr City",
+        "streetAddress": "12 El-Nasr Street, Apt 4",
+        "buildingApt": "Apt 4",
+        "deliveryNotes": "Call before delivery"
+      },
+      "items": [
+        {
+          "id": "prod-1_var-1-2",
+          "productId": "prod-1",
+          "productName": { "en": "Velvet Silk Matte Lipstick", "ar": "أحمر شفاه حريري مخملي" },
+          "brand": "Luma Signature",
+          "variantId": "var-1-2",
+          "variantSku": "LUM-LIP-02",
+          "shadeName": { "en": "Cairo Plum", "ar": "برقوقي قاهري" },
+          "shadeHex": "#7E3F50",
+          "size": "3.8g",
+          "unitPrice": 380,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=400&q=80",
+          "stock": 10
+        }
+      ],
+      "subtotal": 380,
+      "discountAmount": 57,
+      "discountCode": "WELCOME15",
+      "deliveryFee": 50,
+      "total": 373,
+      "currency": "EGP",
+      "paymentMethod": "cash_on_delivery",
+      "paymentStatus": "Unpaid",
+      "paymentCollectedAt": null,
+      "status": "Pending",
+      "statusHistory": [
+        {
+          "status": "Pending",
+          "changedAt": "2026-10-31T12:00:05.412Z",
+          "note": "Order placed (cash on delivery)"
+        }
+      ],
+      "stockRestored": false,
+      "createdAt": "2026-10-31T12:00:05.412Z",
+      "updatedAt": "2026-10-31T12:00:05.412Z"
+    },
+    "isDuplicate": false,
+    "guestAccessHint": "This order is accessible from this browser for 30 days."
+  },
+  "response200_replay": {
+    "$comment": "Same scope + same key + same fingerprint. Returns the ORIGINAL order. No new order, no stock deduction, no coupon increment.",
+    "order": {
+      "id": "ord-1793405639999-100001",
+      "orderNumber": "LUM-100001",
+      "status": "Pending",
+      "total": 373,
+      "currency": "EGP",
+      "paymentStatus": "Unpaid",
+      "createdAt": "2026-10-31T12:00:05.412Z"
+    },
+    "isDuplicate": true
+  },
+  "statusCodes": {
+    "201": "new order committed",
+    "200": "replay of a committed order with the same key and fingerprint",
+    "400": "ValidationFailed | InvalidQuantity | EmptyCart | IdempotencyKeyRequired | InvalidIdempotencyKey",
+    "401": "NotAuthenticated (a malformed/absent guest scope on an otherwise anonymous request is treated as guest-with-new-scope only at POST /guest/session)",
+    "409": "InsufficientStock | CouponNotApplicable | QuoteChanged | QuoteExpired | IdempotencyKeyReuse | CheckoutInProgress",
+    "429": "rate limit exceeded (5/min per identity)"
+  },
+  "inventoryEffect": {
+    "onSuccess": "each requested variant Stock -= quantity inside the same transaction as the order, coupon redemption and idempotency completion",
+    "onFailure": "transaction rolls back; stock, coupon usage and the idempotency reservation are all unchanged",
+    "onReplay": "no effect"
+  },
+  "snapshotGuarantee": "Product name, brand, SKU, shade, size, unit price, image and the shipping address are copied onto the order. Later catalogue or address edits never rewrite an existing order."
+}

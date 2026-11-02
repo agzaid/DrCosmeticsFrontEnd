@@ -1,0 +1,214 @@
+{
+  "$comment": "Customer-owned resources. Every operation is scoped to the authenticated principal; ids from a request body are never trusted as ownership.",
+  "addresses": {
+    "list": {
+      "method": "GET",
+      "path": "/api/v1/customer/addresses",
+      "response200": {
+        "addresses": [
+          {
+            "id": "addr-1",
+            "label": "Home",
+            "fullName": "Sarah Ahmed",
+            "mobileNumber": "01012345678",
+            "governorate": "Cairo",
+            "city": "New Cairo",
+            "streetAddress": "Street 90, South Academy, Villa 14",
+            "buildingApt": "Apt 2B, 2nd Floor",
+            "deliveryNotes": "Please ring bell twice",
+            "isDefault": true
+          }
+        ]
+      }
+    },
+    "create": {
+      "method": "POST",
+      "path": "/api/v1/customer/addresses",
+      "request": {
+        "label": "Work",
+        "fullName": "Sarah Ahmed",
+        "mobileNumber": "01012345678",
+        "governorate": "Giza",
+        "city": "Dokki",
+        "streetAddress": "5 Tahrir Street, Building 3",
+        "buildingApt": "Floor 2",
+        "deliveryNotes": null,
+        "isDefault": false
+      },
+      "response201": {
+        "addresses": [
+          {
+            "id": "addr-1",
+            "label": "Home",
+            "fullName": "Sarah Ahmed",
+            "mobileNumber": "01012345678",
+            "governorate": "Cairo",
+            "city": "New Cairo",
+            "streetAddress": "Street 90, South Academy, Villa 14",
+            "buildingApt": "Apt 2B, 2nd Floor",
+            "deliveryNotes": "Please ring bell twice",
+            "isDefault": true
+          },
+          {
+            "id": "addr-9f2c",
+            "label": "Work",
+            "fullName": "Sarah Ahmed",
+            "mobileNumber": "01012345678",
+            "governorate": "Giza",
+            "city": "Dokki",
+            "streetAddress": "5 Tahrir Street, Building 3",
+            "buildingApt": "Floor 2",
+            "deliveryNotes": null,
+            "isDefault": false
+          }
+        ]
+      },
+      "errors": { "400": "ValidationFailed", "401": "NotAuthenticated" }
+    },
+    "delete": {
+      "method": "DELETE",
+      "path": "/api/v1/customer/addresses/addr-9f2c",
+      "response200": {
+        "addresses": [
+          {
+            "id": "addr-1",
+            "label": "Home",
+            "fullName": "Sarah Ahmed",
+            "mobileNumber": "01012345678",
+            "governorate": "Cairo",
+            "city": "New Cairo",
+            "streetAddress": "Street 90, South Academy, Villa 14",
+            "buildingApt": "Apt 2B, 2nd Floor",
+            "deliveryNotes": "Please ring bell twice",
+            "isDefault": true
+          }
+        ]
+      },
+      "errors": { "401": "NotAuthenticated", "404": "NotFound (also returned for another customer's address)" }
+    }
+  },
+  "wishlist": {
+    "$comment": "Idempotent add/remove replaces the retry-sensitive toggle. Repeating either call never inverts state.",
+    "list": {
+      "method": "GET",
+      "path": "/api/v1/customer/wishlist",
+      "response200": { "productIds": ["prod-1", "prod-7", "prod-14"] }
+    },
+    "add": {
+      "method": "PUT",
+      "path": "/api/v1/customer/wishlist/prod-1",
+      "response204": null,
+      "repeatBehaviour": "still 204, wishlist unchanged"
+    },
+    "remove": {
+      "method": "DELETE",
+      "path": "/api/v1/customer/wishlist/prod-1",
+      "response204": null,
+      "repeatBehaviour": "still 204, wishlist unchanged"
+    },
+    "rules": {
+      "hydrate": "on login, the client unions the browser list with the server list, then persists the union server-side",
+      "archive": "wishlisted products that become archived are omitted from the list response",
+      "logout": "clear all per-user cached wishlist state"
+    }
+  },
+  "orders": {
+    "list": {
+      "method": "GET",
+      "path": "/api/v1/customer/orders?page=1&pageSize=10",
+      "response200": {
+        "orders": [
+          {
+            "id": "ord-1001",
+            "orderNumber": "LUM-849201",
+            "customerId": "user-customer",
+            "customerEmail": "sarah@example.com",
+            "subtotal": 740,
+            "discountAmount": 111,
+            "discountCode": "WELCOME15",
+            "deliveryFee": 0,
+            "total": 629,
+            "currency": "EGP",
+            "paymentMethod": "cash_on_delivery",
+            "paymentStatus": "Collected",
+            "paymentCollectedAt": "2026-06-12T15:30:00.000Z",
+            "status": "Delivered",
+            "stockRestored": false,
+            "createdAt": "2026-06-10T11:02:00.000Z",
+            "updatedAt": "2026-06-12T15:30:00.000Z",
+            "statusHistory": [
+              { "status": "Pending", "changedAt": "2026-06-10T11:02:00.000Z", "note": "Order placed (cash on delivery)" },
+              { "status": "Confirmed", "changedAt": "2026-06-10T12:00:00.000Z", "note": null },
+              { "status": "Shipped", "changedAt": "2026-06-11T09:15:00.000Z", "note": "Courier picked up" },
+              { "status": "Delivered", "changedAt": "2026-06-12T15:30:00.000Z", "note": "Cash collected" }
+            ],
+            "items": [
+              {
+                "id": "prod-1_var-1-1",
+                "productId": "prod-1",
+                "productName": { "en": "Velvet Silk Matte Lipstick", "ar": "أحمر شفاه حريري مخملي" },
+                "brand": "Luma Signature",
+                "variantId": "var-1-1",
+                "variantSku": "LUM-LIP-01",
+                "shadeName": { "en": "Desert Rose", "ar": "وردة الصحراء" },
+                "shadeHex": "#BD6B73",
+                "size": "3.8g",
+                "unitPrice": 380,
+                "quantity": 1,
+                "image": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=400&q=80",
+                "stock": 24
+              }
+            ]
+          }
+        ],
+        "page": 1,
+        "pageSize": 10,
+        "total": 1,
+        "totalPages": 1
+      }
+    },
+    "detail": {
+      "method": "GET",
+      "path": "/api/v1/orders/ord-1001",
+      "response200": { "order": { "$ref": "checkout-place-order.json#/response201_created/order" } },
+      "errors": {
+        "401": "NotAuthenticated when neither a session nor an owning guest cookie is present",
+        "404": "NotFound when the order belongs to another customer or another guest scope"
+      },
+      "notes": "Snapshot values only. Editing the product or the customer address later does not change this response."
+    },
+    "cancel": {
+      "method": "POST",
+      "path": "/api/v1/orders/ord-1793405639999-100001/cancel",
+      "response200": {
+        "order": {
+          "id": "ord-1793405639999-100001",
+          "status": "Cancelled",
+          "paymentStatus": "Unpaid",
+          "stockRestored": true,
+          "statusHistory": [
+            { "status": "Pending", "changedAt": "2026-10-31T12:00:05.412Z", "note": "Order placed (cash on delivery)" },
+            { "status": "Cancelled", "changedAt": "2026-10-31T13:14:00.000Z", "note": "Cancelled by customer" }
+          ]
+        }
+      },
+      "rules": {
+        "allowedFrom": ["Pending", "Confirmed"],
+        "rejected": "Shipped/Delivered → 409 InvalidOrderTransition; PaymentStatus=Collected → 409 PaymentCollectedCannotCancel",
+        "stock": "restored atomically exactly once inside the same transaction that flips stockRestored",
+        "coupon": "usage is NOT restored (lifetime usage); redemption row retained",
+        "idempotence": "a second cancel returns 409 InvalidOrderTransition (terminal state), never a second restore"
+      }
+    },
+    "recovery": {
+      "method": "GET",
+      "path": "/api/v1/checkout/attempts/a3f1c2d4-5e6b-4c7d-8e9f-0a1b2c3d4e5f",
+      "response200": {
+        "order": { "$ref": "checkout-place-order.json#/response201_created/order" },
+        "isDuplicate": true
+      },
+      "errors": { "401": "NotAuthenticated", "404": "NotFound (unknown key, or another scope's key)" },
+      "notes": "Authorized by the authenticated customer's scope or the luma_guest cookie. This is the documented lost-response recovery path — an idempotency key alone is not authorization."
+    }
+  }
+}

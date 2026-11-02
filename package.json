@@ -1,0 +1,39 @@
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:web": "vite",
+    "dev:api": "dotnet run --project ../backend/src/LumaBeauty.Api --launch-profile https",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "lint": "npm run typecheck && npm run typecheck:e2e",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test": "node --import tsx --test src/utils/shopLogic.test.ts",
+    "test:e2e": "node --import tsx tests/e2e/run.ts",
+    "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.28.2",
+    "puppeteer-core": "^25.16.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "$comment": "GET /api/v1/products?category=makeup&sort=newest&page=1&pageSize=24 — published-only, paged. Values from data/db.json prod-1.",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/products?category=makeup&sort=featured&page=1&pageSize=24"
+  },
+  "response200": {
+    "products": [
+      {
+        "id": "prod-1",
+        "name": { "en": "Velvet Silk Matte Lipstick", "ar": "أحمر شفاه حريري مخملي" },
+        "brand": "Luma Signature",
+        "category": "makeup",
+        "subCategory": "Lipstick",
+        "description": {
+          "en": "A richly pigmented, hydrating matte lipstick that glides effortlessly on lips.",
+          "ar": "أحمر شفاه مخملي غني بالألوان ومرطب ينساب بسلاسة ويمنحك إطلالة راقية ومريحة تدوم حتى 10 ساعات."
+        },
+        "ingredients": {
+          "en": "Dimethicone, Isononyl Isononanoate, Jojoba Seed Oil, Shea Butter, Tocopheryl Acetate.",
+          "ar": "دايميثيكون، زيت بذور الجوجوبا، زبدة الشيا، فيتامين هـ، أصباغ معدنية نقية."
+        },
+        "howToUse": {
+          "en": "Apply directly from the bullet starting in the center of your cupid's bow.",
+          "ar": "ضعيه مباشرة على الشفاه بدءاً من المنتصف ثم باتجاه الأطراف لتحديد مثالي."
+        },
+        "price": 380,
+        "originalPrice": 450,
+        "rating": 4.9,
+        "reviewsCount": 128,
+        "images": [
+          "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?auto=format&fit=crop&w=800&q=80"
+        ],
+        "variants": [
+          {
+            "id": "var-1-1",
+            "sku": "LUM-LIP-01",
+            "shadeName": { "en": "Desert Rose", "ar": "وردة الصحراء" },
+            "shadeHex": "#BD6B73",
+            "size": "3.8g",
+            "price": 380,
+            "stock": 24,
+            "isActive": true
+          },
+          {
+            "id": "var-1-2",
+            "sku": "LUM-LIP-02",
+            "shadeName": { "en": "Cairo Plum", "ar": "برقوقي قاهري" },
+            "shadeHex": "#7E3F50",
+            "size": "3.8g",
+            "price": 380,
+            "stock": 11,
+            "isActive": true
+          }
+        ],
+        "skinType": ["all"],
+        "finish": "matte",
+        "coverage": "full",
+        "shadeFamily": "rose",
+        "isFeatured": true,
+        "isNewArrival": true,
+        "isBestSeller": true,
+        "status": "published",
+        "createdAt": "2026-06-01T09:00:00.000Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 24,
+    "total": 7,
+    "totalPages": 1
+  },
+  "detail": {
+    "$comment": "GET /api/v1/products/{id} → { product }. Archived or nonexistent → 404 NotFound (no distinction).",
+    "response200": {
+      "product": {
+        "id": "prod-1",
+        "name": { "en": "Velvet Silk Matte Lipstick", "ar": "أحمر شفاه حريري مخملي" },
+        "brand": "Luma Signature",
+        "category": "makeup",
+        "status": "published",
+        "price": 380,
+        "variants": [
+          {
+            "id": "var-1-1",
+            "sku": "LUM-LIP-01",
+            "shadeName": { "en": "Desert Rose", "ar": "وردة الصحراء" },
+            "shadeHex": "#BD6B73",
+            "size": "3.8g",
+            "price": 380,
+            "stock": 24,
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  "referenceData": {
+    "$comment": "GET /api/v1/categories, /brands, /banners. Banners return active only, ordered by 'order'.",
+    "categories": {
+      "response200": {
+        "categories": [
+          {
+            "id": "makeup",
+            "name": { "en": "Makeup", "ar": "مكياج" },
+            "description": {
+              "en": "Lipsticks, foundations, concealers, blush & palettes",
+              "ar": "أحمر شفاه، كريمات أساس، كونسيلر، بلاش وباليتات"
+            },
+            "iconName": "Sparkles",
+            "imageUrl": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=600&q=80"
+          }
+        ]
+      }
+    },
+    "brands": {
+      "response200": {
+        "brands": [
+          { "id": "luma-signature", "name": "Luma Signature", "origin": "Egypt / France" },
+          { "id": "botanica-haircare", "name": "Botanica Haircare", "origin": "Egypt" }
+        ]
+      }
+    },
+    "banners": {
+      "response200": {
+        "banners": [
+          {
+            "id": "banner-1",
+            "title": { "en": "Timeless Radiance Collection", "ar": "مجموعة الإشراقة الخالدة" },
+            "subtitle": {
+              "en": "Nourish your skin with hydrating tints and satin finishes designed for warmth and all-day wear.",
+              "ar": "تألقي ببشرة حريرية ولمسات دافئة تدوم طوال اليوم بتركيبات غنية بالمرطبات الطبيعية."
+            },
+            "badge": { "en": "NEW SEASON", "ar": "الموسم الجديد" },
+            "ctaText": { "en": "Explore Collection", "ar": "تسوقي المجموعة" },
+            "ctaCategory": "makeup",
+            "imageUrl": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1600&q=80",
+            "discountCode": "WELCOME15",
+            "active": true,
+            "order": 1
+          }
+        ]
+      }
+    }
+  }
+}
