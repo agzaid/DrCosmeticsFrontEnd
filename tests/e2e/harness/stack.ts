@@ -131,7 +131,8 @@ export function publishApi(): void {
   if (process.env.E2E_SKIP_PUBLISH === '1' && existsSync(path.join(PUBLISH_DIR, 'LumaBeauty.Api.dll'))) {
     return;
   }
-  const project = path.join(REPO_ROOT, 'backend', 'src', 'LumaBeauty.Api', 'LumaBeauty.Api.csproj');
+  // The backend is a sibling of the storefront folder, not a child of it.
+  const project = path.join(REPO_ROOT, '..', 'backend', 'src', 'LumaBeauty.Api', 'LumaBeauty.Api.csproj');
   const result = spawnSync(
     'dotnet',
     ['publish', project, '-c', 'Release', '-o', PUBLISH_DIR, '--nologo', '-v', 'q'],
@@ -192,10 +193,10 @@ export async function startStack(runId: string, runDir: string): Promise<Stack> 
   const dbName = `LumaBeauty_E2E_${randomHex(16)}`;
   assertE2eDatabaseName(dbName);
   const webDir = path.join(runDir, 'web');
-  const uploadsDir = path.join(runDir, 'uploads');
+  const storageDir = path.join(runDir, 'storage');
   const logPath = path.join(runDir, 'api.log');
   mkdirSync(runDir, { recursive: true });
-  mkdirSync(uploadsDir, { recursive: true });
+  mkdirSync(storageDir, { recursive: true });
 
   const credentials: StackCredentials = {
     adminEmail: 'admin@lumabeauty.com',
@@ -236,7 +237,7 @@ export async function startStack(runId: string, runDir: string): Promise<Stack> 
         console.error(`[e2e] FAILED to drop ${dbName}: ${String(error)}`);
       }
     }
-    rmSync(uploadsDir, { recursive: true, force: true });
+    rmSync(storageDir, { recursive: true, force: true });
   };
 
   try {
@@ -263,7 +264,7 @@ export async function startStack(runId: string, runDir: string): Promise<Stack> 
         Quotes__SigningKey: randomHex(32),
         RateLimits__AuthPermitLimit: '100000',
         RateLimits__CheckoutPermitLimit: '100000',
-        Uploads__RootPath: uploadsDir,
+        FileStorage__RootPath: storageDir,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,

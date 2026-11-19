@@ -6,6 +6,7 @@ import {
   isValidEgyptianMobile,
   validateShippingAddress,
   checkStockStatus,
+  discountPercent,
   DEFAULT_FREE_SHIPPING_THRESHOLD,
   DEFAULT_SHIPPING_FEE,
 } from './shopLogic';
@@ -182,4 +183,20 @@ test('checkStockStatus flags out-of-stock and low stock correctly', () => {
     isLowStock: false,
     maxPurchasable: 20,
   });
+});
+
+test('discountPercent measures the cheapest active variant and never reports a discount that is not one', () => {
+  // The inactive 400 variant is ignored: 175 against an original of 350 is exactly half off.
+  const variants = [{ price: 400, isActive: false }, { price: 175 }, { price: 300 }];
+  assert.equal(discountPercent({ price: 300, originalPrice: 350, variants }), 50);
+
+  // The API sends null for a product that is not on sale.
+  assert.equal(discountPercent({ price: 100, originalPrice: null, variants: [{ price: 100 }] }), 0);
+  // An original price that is not above the price is not a sale (admin data entry is not validated against it).
+  assert.equal(discountPercent({ price: 100, originalPrice: 100, variants: [{ price: 100 }] }), 0);
+  assert.equal(discountPercent({ price: 120, originalPrice: 100, variants: [{ price: 120 }] }), 0);
+
+  // 380 against 450 is 15.56%: nearest whole percent. A real sub-1% discount still reads as 1%, never 0%.
+  assert.equal(discountPercent({ price: 380, originalPrice: 450, variants: [{ price: 380 }] }), 16);
+  assert.equal(discountPercent({ price: 999, originalPrice: 1000, variants: [{ price: 999 }] }), 1);
 });

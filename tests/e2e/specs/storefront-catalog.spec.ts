@@ -143,8 +143,9 @@ describe('storefront catalog (A-01..A-07, C-1..C-5)', () => {
           await gotoHome(e2e);
           await openShop(e2e);
 
-          const brands = (await anon.get<{ brands: { name: string }[] }>('/api/v1/brands')).data.brands;
-          const brand = brands.find((entry) => entry.name === 'Luma Signature')?.name ?? brands[0].name;
+          // `?brand=` and the <option value> both carry the slug; the option's text is the display name.
+          const brands = (await anon.referenceData()).brands;
+          const brand = (brands.find((entry) => entry.name === 'Luma Signature') ?? brands[0]).slug;
 
           const expectIds = async (query: Record<string, string | number | boolean>): Promise<void> => {
             const expected = await anon.products({ ...query, pageSize: PAGE_SIZE });

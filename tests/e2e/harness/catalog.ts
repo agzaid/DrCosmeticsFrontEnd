@@ -20,22 +20,19 @@ export async function ensureCatalogFixture(admin: ApiClient, target = CATALOG_TA
     return 0;
   }
 
-  const categoriesResult = await admin.get<{ categories: { id: string }[] }>('/api/v1/categories');
-  const brandsResult = await admin.get<{ brands: { id: string; name: string }[] }>('/api/v1/brands');
-  const categories = categoriesResult.data.categories;
-  const brands = brandsResult.data.brands;
+  const { brands, categories } = await admin.referenceData();
 
   const existing = await admin.adminProducts(`status=all&search=${FIXTURE_TOKEN_PREFIX}&pageSize=60`);
   let next = existing.total + 1;
 
   for (let created = 0; created < missing; created += 1, next += 1) {
     const token = fixtureToken(next);
-    const category = categories[next % categories.length].id;
-    const brand = brands[next % brands.length].name;
+    const categoryId = categories[next % categories.length].id;
+    const brandId = brands[next % brands.length].id;
     await admin.createProduct({
       name: { en: `Fixture Item ${token}`, ar: `منتج ${FIXTURE_AR_WORD} ${next}` },
-      brand,
-      category,
+      brandId,
+      categoryId,
       subCategory: 'Fixture',
       description: { en: `Deterministic catalog fixture ${token}.`, ar: `منتج ${FIXTURE_AR_WORD} للفهرس رقم ${next}.` },
       ingredients: { en: 'Water.', ar: 'ماء.' },

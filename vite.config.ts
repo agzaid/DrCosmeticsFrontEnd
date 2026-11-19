@@ -40,6 +40,16 @@ export default defineConfig(({command, mode}) => {
           changeOrigin: true,
           secure: false,
         },
+        // The server-rendered administration pages (/admin) and their scripts and styles (/admin-assets). They are
+        // proxied so that /admin on this origin works in development; the API answers its sign-in redirect with an
+        // absolute https address, which is rewritten back to this server's host and scheme.
+        '^/admin(-assets)?(/|$)': {
+          target: apiOrigin,
+          changeOrigin: true,
+          secure: false,
+          autoRewrite: true,
+          protocolRewrite: 'http',
+        },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.

@@ -21,7 +21,7 @@ import {
   waitForText,
 } from './admin-helpers.ts';
 
-const STATUSES = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'] as const;
+const STATUSES = ['Pending', 'Confirmed', 'Shipped', 'OutForDelivery', 'Delivered', 'Cancelled'] as const;
 
 function money(amount: number, lang: Lang): string {
   const text = amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', {

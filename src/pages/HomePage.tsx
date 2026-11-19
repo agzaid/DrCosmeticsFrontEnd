@@ -165,7 +165,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => onNavigateToShop({ category: cat.id })}
+              onClick={() => onNavigateToShop({ category: cat.slug })}
               className="group relative rounded-2xl overflow-hidden aspect-4/5 text-left rtl:text-right border border-[#E8D6D1] shadow-xs hover:shadow-md transition-all duration-300"
             >
               <img

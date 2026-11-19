@@ -1,5 +1,5 @@
 {
-  "$comment": "RFC 9457 Problem Details for every failure class. Content-Type: application/problem+json. No SQL, stack trace, credential or internal identifier ever appears in 'detail'.",
+  "$comment": "RFC 9457 Problem Details for every failure class. Content-Type: application/problem+json. No SQL, stack trace, credential or internal identifier ever appears in 'detail'. The texts below are the English ones: the API words 'title', 'detail' and the file endpoints' 'errors' in the language of the request's Accept-Language header (en or ar; anything else is English); messages that older use cases word themselves are English only for now.",
   "validationFailed": {
     "http": 400,
     "body": {
@@ -27,6 +27,18 @@
           "Please enter a detailed street address"
         ]
       }
+    }
+  },
+  "invalidResetToken": {
+    "http": 400,
+    "body": {
+      "type": "https://lumabeauty.local/errors/invalid-reset-token",
+      "title": "Reset link invalid or expired",
+      "status": 400,
+      "detail": "This reset link is invalid or has expired. Please request a new one.",
+      "instance": "/api/v1/auth/reset-password",
+      "errorCode": "InvalidResetToken",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
     }
   },
   "invalidQuantity": {
@@ -315,6 +327,19 @@
       "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
     }
   },
+  "emailUnavailable": {
+    "$comment": "Email is not configured on the server (SMTP credentials, sender address or PasswordReset:LinkBaseUrl missing). A global answer, never account-specific.",
+    "http": 503,
+    "body": {
+      "type": "https://lumabeauty.local/errors/email-unavailable",
+      "title": "Email unavailable",
+      "status": 503,
+      "detail": "Password reset by email is not available right now. Please contact the store.",
+      "instance": "/api/v1/auth/forgot-password",
+      "errorCode": "EmailUnavailable",
+      "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    }
+  },
   "payloadTooLarge": {
     "http": 413,
     "body": {
@@ -322,7 +347,7 @@
       "title": "Request failed",
       "status": 413,
       "detail": "The request is too large.",
-      "instance": "/api/v1/admin/uploads",
+      "instance": "/api/v1/files/images",
       "errorCode": "PayloadTooLarge",
       "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
     }

@@ -162,12 +162,16 @@ export interface TestProduct {
   sku: string;
 }
 
-export function productBody(overrides: Partial<ProductWrite> & { sku: string; stock?: number; price?: number }): ProductWrite {
+/** A product is written against the opaque brand/category keys, so the fixture resolves them from reference data. */
+export async function productBody(
+  admin: ApiClient,
+  overrides: Partial<ProductWrite> & { sku: string; stock?: number; price?: number },
+): Promise<ProductWrite> {
   const { sku, stock = 20, price = 120, ...rest } = overrides;
   return {
     name: { en: `E2E Product ${sku}`, ar: `منتج اختبار ${sku}` },
-    brand: 'Luma Signature',
-    category: 'makeup',
+    brandId: await admin.brandKey('Luma Signature'),
+    categoryId: await admin.categoryKey('makeup'),
     subCategory: 'E2E',
     description: { en: 'E2E fixture', ar: 'منتج اختبار' },
     ingredients: { en: 'Water.', ar: 'ماء.' },
@@ -196,7 +200,7 @@ export async function createTestProduct(
 ): Promise<TestProduct> {
   const sku = `E2E-${token()}`;
   const product = await admin.createProduct(
-    productBody({ sku, stock: options.stock, price: options.price, ...(options.name ? { name: options.name } : {}) }),
+    await productBody(admin, { sku, stock: options.stock, price: options.price, ...(options.name ? { name: options.name } : {}) }),
   );
   return { product, variant: product.variants[0], sku };
 }
@@ -257,6 +261,7 @@ export async function adminOrder(admin: ApiClient, orderNumber: string): Promise
 
 export async function adminProduct(admin: ApiClient, id: string): Promise<Product> {
   const result = await admin.get<{ product: Product }>(`/api/v1/admin/products/${encodeURIComponent(id)}`);
+  debugger;
   if (!result.ok) {
     throw new Error(`admin product ${id} failed: ${result.status}`);
   }
@@ -289,7 +294,7 @@ export async function rawUpload(
     .join('; ');
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(bytes)], { type: contentType }), filename);
-  const response = await fetch(`${baseUrl}/api/v1/admin/images`, {
+  const response = await fetch(`${baseUrl}/api/v1/files/images`, {
     method: 'POST',
     headers: { cookie, [headerName]: token },
     body: form,

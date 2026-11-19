@@ -38,7 +38,7 @@ Verification types: **U** unit · **I** SQL Server integration · **B** browser 
 | `AdminPage.tsx` orders | filter, change status, collect cash | `GET/PATCH /admin/orders…`, `POST …/payment/collect` | P6.2 | A-36, A-37 |
 | `AdminPage.tsx` discounts | list/create/archive | `GET|POST|DELETE /admin/discounts` | P4.3 | A-38 |
 | `AdminPage.tsx` banners | edit banners | `GET/PUT /admin/banners` | P4.3 | A-39 |
-| `AdminPage.tsx` images | upload product/banner image | `POST /admin/images` | P4.3 | A-40 |
+| `AdminPage.tsx` images | upload product/banner image (documents: same endpoint family) | `POST /files/images`, `POST /files/documents`, `GET /files/{id}` | P4.3 | A-40 |
 
 ## 2. Included vs deferred
 
@@ -51,7 +51,7 @@ Verification types: **U** unit · **I** SQL Server integration · **B** browser 
 | COD collection | **included** | P6.2 | admin only |
 | Confirmation recovery | **included** | P5.4 | guest cookie + attempt lookup |
 | Profile editing | **deferred** | — | `'profile'` view has no UI; do not render a tab |
-| Password recovery | **deferred** | — | needs an email provider (P8 documents it) |
+| Password recovery | **included** | — | emailed link (token in the URL fragment); needs the Gmail SMTP settings, else 503 `EmailUnavailable` (`DEPLOYMENT.md` section 6) |
 | Category/brand CRUD UI | **deferred** | — | brand becomes a `<select>`; no create/edit UI |
 | Failed/refused delivery | **deferred** | — | no status values exist for it |
 | Refunds after collection | **deferred** | — | cancellation is blocked once collected |
@@ -184,7 +184,7 @@ Seed a **deterministic** development/search fixture of **61 products** on top of
 - **A-37** (I) Collection only after shipment; duplicate collection replays safely; collection then cancel → 409.
 - **A-38** (I) Coupon create normalises the code; expiry/limit enforced at quote and placement; archive keeps historical references.
 - **A-39** (I) Banner save persists bilingual fields; deactivated banner disappears from the public endpoint but not from admin.
-- **A-40** (I,B) Upload rejects a renamed non-image, caps size, generates a safe name, and the URL survives a restart.
+- **A-40** (I,B) Upload (`POST /files/images`; documents the same through `POST /files/documents`) rejects a renamed non-image or non-document, caps size (images 5 MB, documents 8 MB), generates a safe name, records the file, and the URL survives a restart; a document is downloadable only by an administrator (`GET /files/{id}`).
 
 ## 7. Cross-cutting scenarios demanded by the review
 

@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import type { Order, UserAddress } from '../types';
+import type { PasswordResetLink } from '../api/types';
 import { customerApi } from '../api/api';
 import { ApiError } from '../api/httpClient';
 import { mediaUrl } from '../api/config';
@@ -21,10 +22,14 @@ import { ADDRESS_ERROR_MESSAGES, formatPrice, validateShippingAddress } from '..
 import { EGYPT_GOVERNORATES } from '../utils/egyptGovernorates';
 import { ErrorState } from '../components/common/ErrorState';
 import { useDialogBehavior } from '../components/common/useDialogBehavior';
+import { PasswordInput } from '../components/common/PasswordInput';
+import { OrderProgress } from '../components/orders/OrderProgress';
 
 interface AccountPageProps {
   onNavigateToShop: () => void;
   onNavigateToAdmin: () => void;
+  resetLink: PasswordResetLink | null;
+  onResetFinished: () => void;
 }
 
 const ORDERS_PAGE_SIZE = 10;
@@ -262,21 +267,30 @@ const AddressModal: React.FC<AddressModalProps> = ({ onClose, onSaved }) => {
 export const AccountPage: React.FC<AccountPageProps> = ({
   onNavigateToShop,
   onNavigateToAdmin,
+  resetLink,
+  onResetFinished,
 }) => {
-  const { user, login, register, logout, isAdmin, updateUserAddresses } = useAuth();
+  const { user, login, register, logout, isAdmin, updateUserAddresses, refreshUser, requestPasswordReset, resetPassword } = useAuth();
   const { t, l, language } = useLanguage();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'addresses'>('orders');
   
   // Auth Form State (when not logged in)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetLinkRejected, setResetLinkRejected] = useState(false);
+  // Email to place into the sign-in form after a reset. Applied by an effect that is declared after the
+  // account-change effect below, so it wins when the reset also ends the signed-in session.
+  const [prefillEmail, setPrefillEmail] = useState<string | null>(null);
 
   // Customer orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -299,7 +313,26 @@ export const AccountPage: React.FC<AccountPageProps> = ({
     setFullName('');
     setMobileNumber('');
     setAuthError('');
+    setForgotSent(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetLinkRejected(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (prefillEmail !== null) {
+      setEmail(prefillEmail);
+      setPrefillEmail(null);
+    }
+  }, [prefillEmail, user?.id]);
+
+  // A new reset link starts from empty fields and no leftover error.
+  useEffect(() => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setAuthError('');
+    setResetLinkRejected(false);
+  }, [resetLink]);
 
   // Fetch orders when a user signs in; everything per-user is dropped as soon as the account changes.
   useEffect(() => {
@@ -396,6 +429,71 @@ export const AccountPage: React.FC<AccountPageProps> = ({
     setAuthLoading(false);
   };
 
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setAuthError(t('account.error.email'));
+      return;
+    }
+
+    setAuthLoading(true);
+    const res = await requestPasswordReset(email.trim());
+    setAuthLoading(false);
+    if (res.success) {
+      setForgotSent(true);
+    } else {
+      setAuthError(res.error || t('account.error.forgotFailed'));
+    }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetLink) {
+      return;
+    }
+    setAuthError('');
+    setResetLinkRejected(false);
+
+    if (newPassword.length < 8) {
+      setAuthError(t('account.error.passwordShort'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError(t('account.error.passwordMismatch'));
+      return;
+    }
+
+    setAuthLoading(true);
+    const res = await resetPassword(resetLink.email, resetLink.token, newPassword);
+    if (!res.success) {
+      setAuthError(res.error || t('account.error.resetFailed'));
+      setResetLinkRejected(res.code === 'InvalidResetToken');
+      setAuthLoading(false);
+      return;
+    }
+
+    showToast(t('account.reset.success'), 'success');
+    if (user) {
+      // The reset ends every session of the account; reloading the profile drops a session that just died.
+      await refreshUser().catch(() => undefined);
+    }
+    setNewPassword('');
+    setConfirmPassword('');
+    setPassword('');
+    setPrefillEmail(resetLink.email);
+    setAuthMode('login');
+    setAuthLoading(false);
+    onResetFinished();
+  };
+
+  const backToLogin = () => {
+    setAuthMode('login');
+    setAuthError('');
+    setForgotSent(false);
+  };
+
   const handleCancelOrder = async (order: Order): Promise<void> => {
     if (!window.confirm(t('account.cancelConfirm'))) {
       return;
@@ -426,8 +524,27 @@ export const AccountPage: React.FC<AccountPageProps> = ({
 
   const dateLocale = language === 'ar' ? 'ar-EG' : 'en-US';
 
-  // If not logged in, render Login / Register view
-  if (!user) {
+  // If not logged in (or following a reset link), render the Login / Register / Forgot / Reset card
+  if (!user || resetLink) {
+    const mode: 'login' | 'register' | 'forgot' | 'reset' = resetLink ? 'reset' : authMode;
+    const authTitle =
+      mode === 'login'
+        ? t('account.signIn')
+        : mode === 'register'
+          ? t('account.register')
+          : mode === 'forgot'
+            ? t('account.forgot.title')
+            : t('account.reset.title');
+    const authSubtitle =
+      mode === 'forgot'
+        ? t('account.forgot.subtitle')
+        : mode === 'reset'
+          ? t('account.reset.subtitle')
+          : t('account.subtitle');
+    const submitButtonClass =
+      'w-full py-3 bg-[#3B2332] hover:bg-[#523347] disabled:opacity-50 text-white rounded-xl font-bold transition shadow-xs';
+    const textButtonClass = 'text-[#8B263E] font-bold hover:underline';
+
     return (
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="bg-white rounded-3xl border border-[#E8D6D1] p-6 sm:p-8 shadow-sm space-y-6">
@@ -436,46 +553,48 @@ export const AccountPage: React.FC<AccountPageProps> = ({
               <UserIcon className="w-6 h-6" />
             </div>
             <h1 className="font-serif text-2xl font-bold text-[#2D1E2F]">
-              {authMode === 'login' ? t('account.signIn') : t('account.register')}
+              {authTitle}
             </h1>
             <p className="text-xs text-[#8B6E7E]">
-              {t('account.subtitle')}
+              {authSubtitle}
             </p>
           </div>
 
           {/* Tab Switcher */}
-          <div role="tablist" className="flex bg-[#FAF7F5] p-1 rounded-xl border border-[#E8D6D1]">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={authMode === 'login'}
-              data-testid="auth-tab-login"
-              onClick={() => {
-                setAuthMode('login');
-                setAuthError('');
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
-                authMode === 'login' ? 'bg-white text-[#2D1E2F] shadow-xs' : 'text-[#8B6E7E]'
-              }`}
-            >
-              {t('account.signIn')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={authMode === 'register'}
-              data-testid="auth-tab-register"
-              onClick={() => {
-                setAuthMode('register');
-                setAuthError('');
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
-                authMode === 'register' ? 'bg-white text-[#2D1E2F] shadow-xs' : 'text-[#8B6E7E]'
-              }`}
-            >
-              {t('account.register')}
-            </button>
-          </div>
+          {(mode === 'login' || mode === 'register') && (
+            <div role="tablist" className="flex bg-[#FAF7F5] p-1 rounded-xl border border-[#E8D6D1]">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authMode === 'login'}
+                data-testid="auth-tab-login"
+                onClick={() => {
+                  setAuthMode('login');
+                  setAuthError('');
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                  authMode === 'login' ? 'bg-white text-[#2D1E2F] shadow-xs' : 'text-[#8B6E7E]'
+                }`}
+              >
+                {t('account.signIn')}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authMode === 'register'}
+                data-testid="auth-tab-register"
+                onClick={() => {
+                  setAuthMode('register');
+                  setAuthError('');
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                  authMode === 'register' ? 'bg-white text-[#2D1E2F] shadow-xs' : 'text-[#8B6E7E]'
+                }`}
+              >
+                {t('account.register')}
+              </button>
+            </div>
+          )}
 
           {authError && (
             <div role="alert" data-testid="auth-error" className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
@@ -483,87 +602,205 @@ export const AccountPage: React.FC<AccountPageProps> = ({
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleAuthSubmit} noValidate data-testid="auth-form" className="space-y-4 text-xs">
-            {authMode === 'register' && (
-              <>
-                <div>
-                  <label htmlFor="auth-fullName" className="block font-bold text-[#503E48] mb-1">
-                    {t('checkout.fullName')} *
-                  </label>
-                  <input
-                    id="auth-fullName"
-                    type="text"
-                    autoComplete="name"
-                    aria-required="true"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder={t('checkout.ph.fullName')}
-                    className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E]"
-                  />
+          {mode === 'reset' && resetLink && (
+            <form onSubmit={handleResetSubmit} noValidate data-testid="reset-form" className="space-y-4 text-xs">
+              <div>
+                <span className="block font-bold text-[#503E48] mb-1">{t('account.email')}</span>
+                <p
+                  data-testid="reset-email"
+                  dir="ltr"
+                  className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 text-[#8B6E7E] break-all rtl:text-right"
+                >
+                  {resetLink.email}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="reset-password" className="block font-bold text-[#503E48] mb-1">
+                  {t('account.reset.newPassword')} *
+                </label>
+                <PasswordInput
+                  id="reset-password"
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="reset-password-confirm" className="block font-bold text-[#503E48] mb-1">
+                  {t('account.reset.confirmPassword')} *
+                </label>
+                <PasswordInput
+                  id="reset-password-confirm"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+
+              <button type="submit" data-testid="reset-submit" disabled={authLoading} className={submitButtonClass}>
+                {authLoading ? '...' : t('account.reset.submit')}
+              </button>
+
+              {resetLinkRejected && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    data-testid="reset-request-new"
+                    onClick={() => {
+                      setEmail(resetLink.email);
+                      setPassword('');
+                      setAuthMode('forgot');
+                      setAuthError('');
+                      setResetLinkRejected(false);
+                      onResetFinished();
+                    }}
+                    className={textButtonClass}
+                  >
+                    {t('account.reset.requestNew')}
+                  </button>
                 </div>
+              )}
+            </form>
+          )}
 
-                <div>
-                  <label htmlFor="auth-mobile" className="block font-bold text-[#503E48] mb-1">
-                    {t('checkout.mobileNumber')}
-                  </label>
-                  <input
-                    id="auth-mobile"
-                    type="tel"
-                    dir="ltr"
-                    autoComplete="tel"
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
-                    placeholder="01012345678"
-                    className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E] rtl:text-right"
-                  />
-                </div>
-              </>
-            )}
+          {mode === 'forgot' && !forgotSent && (
+            <form onSubmit={handleForgotSubmit} noValidate data-testid="forgot-form" className="space-y-4 text-xs">
+              <div>
+                <label htmlFor="forgot-email" className="block font-bold text-[#503E48] mb-1">
+                  {t('account.email')} *
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  aria-required="true"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E] rtl:text-right"
+                />
+              </div>
 
-            <div>
-              <label htmlFor="auth-email" className="block font-bold text-[#503E48] mb-1">
-                {t('account.email')} *
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                dir="ltr"
-                autoComplete="email"
-                aria-required="true"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E] rtl:text-right"
-              />
+              <button type="submit" data-testid="forgot-submit" disabled={authLoading} className={submitButtonClass}>
+                {authLoading ? '...' : t('account.forgot.submit')}
+              </button>
+
+              <div className="text-center">
+                <button type="button" data-testid="forgot-back" onClick={backToLogin} className={textButtonClass}>
+                  {t('account.forgot.back')}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {mode === 'forgot' && forgotSent && (
+            <div className="space-y-4 text-xs">
+              <div data-testid="forgot-sent" className="bg-[#FAF3F1] border border-[#E8D6D1] rounded-2xl p-4 space-y-1 text-center">
+                <p className="font-bold text-[#2D1E2F]">{t('account.forgot.sentTitle')}</p>
+                <p className="text-[#503E48] leading-relaxed">{t('account.forgot.sentBody')}</p>
+              </div>
+              <div className="text-center">
+                <button type="button" data-testid="forgot-back" onClick={backToLogin} className={textButtonClass}>
+                  {t('account.forgot.back')}
+                </button>
+              </div>
             </div>
+          )}
 
-            <div>
-              <label htmlFor="auth-password" className="block font-bold text-[#503E48] mb-1">
-                {t('account.password')} *
-              </label>
-              <input
-                id="auth-password"
-                type="password"
-                dir="ltr"
-                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                aria-required="true"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E] rtl:text-right"
-              />
-            </div>
+          {(mode === 'login' || mode === 'register') && (
+            <form onSubmit={handleAuthSubmit} noValidate data-testid="auth-form" className="space-y-4 text-xs">
+              {authMode === 'register' && (
+                <>
+                  <div>
+                    <label htmlFor="auth-fullName" className="block font-bold text-[#503E48] mb-1">
+                      {t('checkout.fullName')} *
+                    </label>
+                    <input
+                      id="auth-fullName"
+                      type="text"
+                      autoComplete="name"
+                      aria-required="true"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder={t('checkout.ph.fullName')}
+                      className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E]"
+                    />
+                  </div>
 
-            <button
-              type="submit"
-              data-testid="auth-submit"
-              disabled={authLoading}
-              className="w-full py-3 bg-[#3B2332] hover:bg-[#523347] disabled:opacity-50 text-white rounded-xl font-bold transition shadow-xs"
-            >
-              {authLoading ? '...' : authMode === 'login' ? t('account.signIn') : t('account.register')}
-            </button>
-          </form>
+                  <div>
+                    <label htmlFor="auth-mobile" className="block font-bold text-[#503E48] mb-1">
+                      {t('checkout.mobileNumber')}
+                    </label>
+                    <input
+                      id="auth-mobile"
+                      type="tel"
+                      dir="ltr"
+                      autoComplete="tel"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      placeholder="01012345678"
+                      className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E] rtl:text-right"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label htmlFor="auth-email" className="block font-bold text-[#503E48] mb-1">
+                  {t('account.email')} *
+                </label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  aria-required="true"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-[#8B263E] rtl:text-right"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="auth-password" className="block font-bold text-[#503E48] mb-1">
+                  {t('account.password')} *
+                </label>
+                <PasswordInput
+                  id="auth-password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                  required
+                />
+                {authMode === 'login' && (
+                  <div className="flex justify-end mt-2">
+                    <button
+                      type="button"
+                      data-testid="auth-forgot-link"
+                      onClick={() => {
+                        setAuthMode('forgot');
+                        setPassword('');
+                        setAuthError('');
+                      }}
+                      className={textButtonClass}
+                    >
+                      {t('account.forgotPassword')}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" data-testid="auth-submit" disabled={authLoading} className={submitButtonClass}>
+                {authLoading ? '...' : authMode === 'login' ? t('account.signIn') : t('account.register')}
+              </button>
+            </form>
+          )}
 
         </div>
       </div>
@@ -700,6 +937,8 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : order.status === 'Cancelled'
                                 ? 'bg-rose-100 text-rose-800'
+                                : order.status === 'OutForDelivery'
+                                ? 'bg-sky-100 text-sky-800'
                                 : 'bg-amber-100 text-amber-800'
                             }`}
                           >
@@ -724,6 +963,10 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                       )}
                     </div>
                   </button>
+
+                  <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                    <OrderProgress status={order.status} testId={`order-progress-${order.id}`} />
+                  </div>
 
                   {/* Expanded Order Details */}
                   {isExpanded && (

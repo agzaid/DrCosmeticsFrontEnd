@@ -207,16 +207,41 @@
   },
   "imageUpload": {
     "method": "POST",
-    "path": "/api/v1/admin/images",
-    "request": "multipart/form-data with a single 'file' part",
-    "response201": { "url": "/media/products/7f3c1d92-4a1b-4e0f-9c2d-6b8e5a4f1c33.webp" },
+    "path": "/api/v1/files/images",
+    "request": "multipart/form-data; the first file part is the file",
+    "response201": { "id": "6b1f3c8e-2d4a-4f7b-9a10-5c8e7d2f4a91", "kind": "image", "fileName": "summer-serum.png", "contentType": "image/png", "sizeBytes": 183204, "url": "/media/7f3c1d924a1b4e0f9c2d6b8e5a4f1c33.png" },
     "rules": {
-      "validation": "magic-byte content sniffing, allow-list image/jpeg|image/png|image/webp, max 5 MB (configurable)",
-      "naming": "server-generated GUID + extension from the sniffed type; the client filename is never used",
-      "serving": "static files from the configured upload root only; path traversal rejected",
-      "storage": "IImageStorage interface; LocalImageStorage writes under Uploads:RootPath and survives restart"
+      "validation": "magic-byte content sniffing, allow-list image/jpeg|image/png|image/webp, max 5 MB (a rule of the code, not a setting)",
+      "naming": "server-generated 32-hex name + extension from the sniffed type; the client filename is kept only as 'fileName' (cleaned) in the record and the download name, never as a path",
+      "serving": "public, static files under FileStorage:PublicBasePath (default /media) from FileStorage:RootPath\\images only; path traversal rejected",
+      "storage": "IFileStorage / LocalFileStorage write under FileStorage:RootPath\\images (folder name FileStorage:ImagesFolder) and survive restart; one record per file in document.StoredFiles (Kind, OriginalName, StoredName, ContentType, SizeBytes, UploadedBy, UploadedAtUtc), no path stored",
+      "auth": "administrator only; X-XSRF-TOKEN required"
     },
-    "errors": { "400": "ValidationFailed (type/size)", "413": "payload too large", "403": "Forbidden" }
+    "errors": { "400": "ValidationFailed (type/size/no file/not multipart): reason in errors.file and in detail", "401": "NotAuthenticated", "403": "Forbidden", "413": "PayloadTooLarge (body above the 10 MB host limit)" },
+    "notes": "Replaces POST /api/v1/admin/images (response was { url }); the old route no longer exists and answers the generic 404."
+  },
+  "documentUpload": {
+    "method": "POST",
+    "path": "/api/v1/files/documents",
+    "request": "multipart/form-data; the first file part is the file",
+    "response201": { "id": "0e9d4a52-7b3c-4c1e-8f26-3a5b9c7d1e48", "kind": "document", "fileName": "price-list.xlsx", "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "sizeBytes": 48211, "url": "/api/v1/files/0e9d4a52-7b3c-4c1e-8f26-3a5b9c7d1e48" },
+    "rules": {
+      "validation": "content decides the type: PDF, Word .docx, Excel .xlsx, CSV or plain text; max 8 MB (a rule of the code, not a setting)",
+      "naming": "server-generated name; the client filename is kept only as 'fileName' (cleaned) in the record and the download name",
+      "serving": "never a public file: 'url' is the administrator-only download address GET /api/v1/files/{id}",
+      "storage": "FileStorage:RootPath\\documents (folder name FileStorage:DocumentsFolder); one record per file in document.StoredFiles",
+      "auth": "administrator only; X-XSRF-TOKEN required"
+    },
+    "errors": { "400": "ValidationFailed (type/size/no file/not multipart): reason in errors.file and in detail", "401": "NotAuthenticated", "403": "Forbidden", "413": "PayloadTooLarge (body above the 10 MB host limit)" }
+  },
+  "fileDownload": {
+    "method": "GET",
+    "path": "/api/v1/files/0e9d4a52-7b3c-4c1e-8f26-3a5b9c7d1e48",
+    "response200": "the file's bytes (image or document) as an attachment under the name it was uploaded with, with its real content type and X-Content-Type-Options: nosniff",
+    "rules": {
+      "auth": "administrator only"
+    },
+    "errors": { "401": "NotAuthenticated", "403": "Forbidden", "404": "NotFound (unknown id, or the file has gone missing from disk)" }
   },
   "discounts": {
     "list": { "method": "GET", "path": "/api/v1/admin/discounts", "response200": { "discounts": [{ "code": "WELCOME15", "type": "percentage", "value": 15, "minOrderAmount": 300, "maxDiscount": 150, "expiryDate": "2028-12-31T23:59:59.000Z", "usageLimit": 500, "currentUsage": 34, "active": true }] } },

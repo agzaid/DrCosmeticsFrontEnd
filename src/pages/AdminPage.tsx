@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Archive,
+  Award,
   Banknote,
   CheckCircle2,
   Clock,
   Edit3,
+  FileText,
   Image as ImageIcon,
   Loader2,
   Package,
@@ -15,21 +17,29 @@ import {
   ShieldCheck,
   ShoppingBag,
   Tag,
+  Trash2,
   TrendingUp,
+  Truck,
   Upload,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useDeliverySettings } from '../context/DeliverySettingsContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { adminApi, catalogApi } from '../api/api';
 import { ApiError } from '../api/httpClient';
-import { mediaUrl } from '../api/config';
+import { fileUrl, mediaUrl } from '../api/config';
 import type {
+  AdminBrand,
+  BrandWrite,
+  DeliverySettings,
+  DeliverySettingsWrite,
   DiscountRecord,
   DiscountWrite,
   InventoryAdjustPayload,
   ProductWrite,
+  StoredFile,
   VariantWrite,
 } from '../api/types';
 import type {
@@ -45,23 +55,26 @@ import type {
 } from '../types';
 import { AdminModal } from '../components/admin/AdminModal';
 
-type AdminTab = 'overview' | 'products' | 'orders' | 'inventory' | 'discounts' | 'banners';
+type AdminTab = 'overview' | 'products' | 'brands' | 'orders' | 'inventory' | 'delivery' | 'discounts' | 'banners' | 'files';
 
 const SKIN_TYPE_OPTIONS = ['all', 'dry', 'oily', 'combination', 'sensitive'];
 const FINISH_OPTIONS = ['matte', 'dewy', 'radiant', 'satin', 'natural'];
 const COVERAGE_OPTIONS = ['sheer', 'medium', 'full'];
 
-const ORDER_STATUSES: OrderStatus[] = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+const ORDER_STATUSES: OrderStatus[] = ['Pending', 'Confirmed', 'Shipped', 'OutForDelivery', 'Delivered', 'Cancelled'];
 
 const ORDER_STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   Pending: ['Confirmed', 'Cancelled'],
   Confirmed: ['Shipped', 'Cancelled'],
-  Shipped: ['Delivered'],
+  Shipped: ['OutForDelivery'],
+  OutForDelivery: ['Delivered'],
   Delivered: [],
   Cancelled: [],
 };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
+const FILES_PAGE_SIZE = 20;
 
 /** Display labels for every enumerated value the admin UI prints (the API returns English keys). */
 const ENUM_LABELS: Record<string, LocalizedString> = {
@@ -112,6 +125,9 @@ const ERROR_COPY: Record<string, ErrorCopy> = {
   NotFound: {
     en: 'This item no longer exists. Refresh and try again.',
     ar: 'هذا العنصر لم يعد موجوداً. حدّث الصفحة وحاول مرة أخرى.',
+  },
+  BrandInUse: {
+    ar: 'لا يمكن حذف هذه الماركة لأن منتجات ما زالت مرتبطة بها. انقل تلك المنتجات إلى ماركة أخرى أولاً.',
   },
   ValidationFailed: { ar: 'يرجى مراجعة الحقول المُدخلة ثم المحاولة مرة أخرى.' },
   InventoryConflict: {
@@ -165,8 +181,8 @@ interface VariantDraft {
 interface ProductDraft {
   id: string | null;
   name: LocalizedString;
-  brand: string;
-  category: string;
+  brandId: string;
+  categoryId: string;
   subCategory: string;
   description: LocalizedString;
   ingredients: LocalizedString;
@@ -198,6 +214,19 @@ interface DiscountDraft {
   active: boolean;
 }
 
+interface BrandDraft {
+  /** Null creates a brand; set edits that brand. The server owns the id and the slug. */
+  id: string | null;
+  name: string;
+  origin: string;
+  logoUrl: string;
+}
+
+interface DeliverySettingsDraft {
+  deliveryFee: string;
+  freeShippingThreshold: string;
+}
+
 function errorMessage(error: unknown, language: Language): string {
   const ar = language === 'ar';
   if (error instanceof ApiError) {
@@ -224,6 +253,18 @@ async function looksLikeSupportedImage(file: File): Promise<boolean> {
   const text = (from: number, to: number): string => String.fromCharCode(...head.slice(from, to));
   const webp = head.length >= 12 && text(0, 4) === 'RIFF' && text(8, 12) === 'WEBP';
   return jpeg || png || webp;
+}
+
+/** A size in whole units, so a list of files lines up: 964 KB, 1.2 MB. */
+function formatFileSize(bytes: number, language: Language): string {
+  const locale = language === 'ar' ? 'ar-EG' : 'en-US';
+  if (bytes < 1024) {
+    return `${bytes.toLocaleString(locale)} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024).toLocaleString(locale)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toLocaleString(locale, { maximumFractionDigits: 1 })} MB`;
 }
 
 /** Admin figures keep their cents (the storefront formatter rounds to whole pounds, which would misstate COD amounts). */
@@ -256,7 +297,7 @@ function createVariantDraft(price: string): VariantDraft {
     sku: '',
     shadeEn: '',
     shadeAr: '',
-    shadeHex: '#BD6B73',
+    shadeHex: '',
     size: '',
     price,
     stock: '0',
@@ -264,12 +305,12 @@ function createVariantDraft(price: string): VariantDraft {
   };
 }
 
-function createProductDraft(brand: string, category: string): ProductDraft {
+function createProductDraft(brandId: string, categoryId: string): ProductDraft {
   return {
     id: null,
     name: { en: '', ar: '' },
-    brand,
-    category,
+    brandId,
+    categoryId,
     subCategory: '',
     description: { en: '', ar: '' },
     ingredients: { en: '', ar: '' },
@@ -291,12 +332,12 @@ function createProductDraft(brand: string, category: string): ProductDraft {
   };
 }
 
-function productToDraft(product: Product, brandName: string): ProductDraft {
+function productToDraft(product: Product): ProductDraft {
   return {
     id: product.id,
     name: { en: product.name.en, ar: product.name.ar },
-    brand: brandName,
-    category: product.category,
+    brandId: product.brandId,
+    categoryId: product.categoryId,
     subCategory: product.subCategory ?? '',
     description: { en: product.description.en, ar: product.description.ar },
     ingredients: { en: product.ingredients.en, ar: product.ingredients.ar },
@@ -315,25 +356,29 @@ function productToDraft(product: Product, brandName: string): ProductDraft {
     isNewArrival: product.isNewArrival ?? false,
     isBestSeller: product.isBestSeller ?? false,
     status: product.status,
-    variants: product.variants.map((variant) => ({
-      id: variant.id ? variant.id : null,
-      sku: variant.sku,
-      shadeEn: variant.shadeName?.en ?? '',
-      shadeAr: variant.shadeName?.ar ?? '',
-      shadeHex: variant.shadeHex ?? '',
-      size: variant.size ?? '',
-      price: String(variant.price),
-      stock: String(variant.stock),
-      isActive: variant.isActive ?? true,
-    })),
+    // The modal edits one stock-keeping row, so a draft always carries at least one.
+    variants:
+      product.variants.length > 0
+        ? product.variants.map((variant) => ({
+            id: variant.id ? variant.id : null,
+            sku: variant.sku,
+            shadeEn: variant.shadeName?.en ?? '',
+            shadeAr: variant.shadeName?.ar ?? '',
+            shadeHex: variant.shadeHex ?? '',
+            size: variant.size ?? '',
+            price: String(variant.price),
+            stock: String(variant.stock),
+            isActive: variant.isActive ?? true,
+          }))
+        : [createVariantDraft(String(product.price))],
   };
 }
 
 function draftToPayload(draft: ProductDraft): ProductWrite {
   return {
     name: { en: draft.name.en.trim(), ar: draft.name.ar.trim() },
-    brand: draft.brand.trim(),
-    category: draft.category,
+    brandId: draft.brandId.trim(),
+    categoryId: draft.categoryId.trim(),
     subCategory: optionalText(draft.subCategory),
     description: { en: draft.description.en.trim(), ar: draft.description.ar.trim() },
     ingredients: { en: draft.ingredients.en.trim(), ar: draft.ingredients.ar.trim() },
@@ -360,7 +405,7 @@ function draftToPayload(draft: ProductDraft): ProductWrite {
         shadeName: shadeEn.length > 0 || shadeAr.length > 0 ? { en: shadeEn, ar: shadeAr } : null,
         shadeHex: optionalText(variant.shadeHex),
         size: optionalText(variant.size),
-        price: toNumber(variant.price),
+        price: variant.id ? toNumber(variant.price) : toNumber(draft.price),
         stock: Math.max(0, Math.round(toNumber(variant.stock))),
         isActive: variant.isActive,
       };
@@ -464,6 +509,7 @@ export const AdminPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { t, l, language } = useLanguage();
   const { showToast } = useToast();
+  const { refresh: refreshDeliverySettings } = useDeliverySettings();
 
   const tr = (en: string, ar: string): string => (language === 'ar' ? ar : en);
 
@@ -478,6 +524,15 @@ export const AdminPage: React.FC = () => {
   // Catalog reference data
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+
+  // Brands (administration: every brand plus its product count)
+  const [adminBrands, setAdminBrands] = useState<AdminBrand[]>([]);
+  const [adminBrandsLoading, setAdminBrandsLoading] = useState(true);
+  const [adminBrandsError, setAdminBrandsError] = useState<string | null>(null);
+  const [brandDraft, setBrandDraft] = useState<BrandDraft | null>(null);
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandFormError, setBrandFormError] = useState<string | null>(null);
+  const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
 
   // Products
   const [products, setProducts] = useState<Product[]>([]);
@@ -496,14 +551,36 @@ export const AdminPage: React.FC = () => {
   const [productTotalPages, setProductTotalPages] = useState(0);
 
   // Inventory
+  const [inventoryProducts, setInventoryProducts] = useState<Product[]>([]);
+  const [inventoryTotal, setInventoryTotal] = useState(0);
+  const [inventoryTotalPages, setInventoryTotalPages] = useState(0);
+  const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [inventoryListError, setInventoryListError] = useState<string | null>(null);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryCategory, setInventoryCategory] = useState('all');
+  const [inventoryBrand, setInventoryBrand] = useState('all');
+  const [inventoryStatus, setInventoryStatus] = useState('all');
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [inventoryAdjustOpen, setInventoryAdjustOpen] = useState(false);
   const [inventoryProductId, setInventoryProductId] = useState('');
   const [inventoryVariantId, setInventoryVariantId] = useState('');
   const [inventoryDelta, setInventoryDelta] = useState('1');
   const [inventoryNewStock, setInventoryNewStock] = useState('0');
   const [inventoryModeChoice, setInventoryMode] = useState<'delta' | 'absolute'>('delta');
-  const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [inventoryReason, setInventoryReason] = useState('');
   const [inventorySaving, setInventorySaving] = useState(false);
+
+  // Delivery fees
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySettings | null>(null);
+  const [deliverySettingsLoading, setDeliverySettingsLoading] = useState(true);
+  const [deliverySettingsError, setDeliverySettingsError] = useState<string | null>(null);
+  const [deliverySettingsDraft, setDeliverySettingsDraft] = useState<DeliverySettingsDraft>({
+    deliveryFee: '50',
+    freeShippingThreshold: '600',
+  });
+  const [deliverySettingsSaving, setDeliverySettingsSaving] = useState(false);
+  const [deliverySettingsFormError, setDeliverySettingsFormError] = useState<string | null>(null);
 
   // Discounts
   const [discounts, setDiscounts] = useState<DiscountRecord[]>([]);
@@ -519,6 +596,18 @@ export const AdminPage: React.FC = () => {
   const [bannersLoading, setBannersLoading] = useState(true);
   const [bannersError, setBannersError] = useState<string | null>(null);
   const [bannersSaving, setBannersSaving] = useState(false);
+
+  // Files
+  const [files, setFiles] = useState<StoredFile[]>([]);
+  const [filesTotal, setFilesTotal] = useState(0);
+  const [filesLoading, setFilesLoading] = useState(true);
+  const [filesError, setFilesError] = useState<string | null>(null);
+  const [fileKind, setFileKind] = useState<'all' | 'image' | 'document'>('all');
+  const [fileSearch, setFileSearch] = useState('');
+  const [filePage, setFilePage] = useState(1);
+  const [libraryUploading, setLibraryUploading] = useState(false);
+  const [libraryUploadError, setLibraryUploadError] = useState<string | null>(null);
+  const [copiedFileId, setCopiedFileId] = useState<string | null>(null);
 
   // Orders
   const [orders, setOrders] = useState<Order[]>([]);
@@ -541,6 +630,41 @@ export const AdminPage: React.FC = () => {
       setCategories(categoryList);
     } catch (error) {
       showToast(describeError(error), 'error');
+    }
+  }, [showToast, describeError]);
+
+  const loadAdminBrands = useCallback(async (): Promise<void> => {
+    setAdminBrandsLoading(true);
+    setAdminBrandsError(null);
+    try {
+      setAdminBrands(await adminApi.brands());
+    } catch (error) {
+      const message = describeError(error);
+      setAdminBrands([]);
+      setAdminBrandsError(message);
+      showToast(message, 'error');
+    } finally {
+      setAdminBrandsLoading(false);
+    }
+  }, [showToast, describeError]);
+
+  const loadDeliverySettings = useCallback(async (): Promise<void> => {
+    setDeliverySettingsLoading(true);
+    setDeliverySettingsError(null);
+    try {
+      const settings = await adminApi.deliverySettings();
+      setDeliverySettings(settings);
+      setDeliverySettingsDraft({
+        deliveryFee: String(settings.deliveryFee),
+        freeShippingThreshold: String(settings.freeShippingThreshold),
+      });
+    } catch (error) {
+      const message = describeError(error);
+      setDeliverySettings(null);
+      setDeliverySettingsError(message);
+      showToast(message, 'error');
+    } finally {
+      setDeliverySettingsLoading(false);
     }
   }, [showToast, describeError]);
 
@@ -585,6 +709,54 @@ export const AdminPage: React.FC = () => {
     [showToast, describeError],
   );
 
+  const inventoryRequestId = useRef(0);
+
+  const loadInventory = useCallback(
+    async (filters: {
+      search: string;
+      category: string;
+      brand: string;
+      status: string;
+      page: number;
+    }): Promise<void> => {
+      const requestId = inventoryRequestId.current + 1;
+      inventoryRequestId.current = requestId;
+      setInventoryLoading(true);
+      setInventoryListError(null);
+      try {
+        const result = await adminApi.products({
+          status: filters.status === 'all' ? 'all' : filters.status,
+          search: filters.search.trim().length > 0 ? filters.search.trim() : undefined,
+          category: filters.category === 'all' ? undefined : filters.category,
+          brand: filters.brand === 'all' ? undefined : filters.brand,
+          page: filters.page,
+          pageSize: 60,
+        });
+        if (requestId !== inventoryRequestId.current) {
+          return;
+        }
+        setInventoryProducts(result.products);
+        setInventoryTotal(result.total);
+        setInventoryTotalPages(result.totalPages);
+      } catch (error) {
+        if (requestId !== inventoryRequestId.current) {
+          return;
+        }
+        const message = describeError(error);
+        setInventoryProducts([]);
+        setInventoryTotal(0);
+        setInventoryTotalPages(0);
+        setInventoryListError(message);
+        showToast(message, 'error');
+      } finally {
+        if (requestId === inventoryRequestId.current) {
+          setInventoryLoading(false);
+        }
+      }
+    },
+    [showToast, describeError],
+  );
+
   const loadDiscounts = useCallback(async (): Promise<void> => {
     setDiscountsLoading(true);
     setDiscountsError(null);
@@ -614,6 +786,32 @@ export const AdminPage: React.FC = () => {
       setBannersLoading(false);
     }
   }, [showToast, describeError]);
+
+  const loadFiles = useCallback(
+    async (kind: 'all' | 'image' | 'document', search: string, page: number): Promise<void> => {
+      setFilesLoading(true);
+      setFilesError(null);
+      try {
+        const found = await adminApi.files({
+          kind: kind === 'all' ? undefined : kind,
+          search: search.trim() === '' ? undefined : search.trim(),
+          page,
+          pageSize: FILES_PAGE_SIZE,
+        });
+        setFiles(found.items);
+        setFilesTotal(found.total);
+      } catch (error) {
+        const message = describeError(error);
+        setFiles([]);
+        setFilesTotal(0);
+        setFilesError(message);
+        showToast(message, 'error');
+      } finally {
+        setFilesLoading(false);
+      }
+    },
+    [showToast, describeError],
+  );
 
   const loadMetrics = useCallback(async (): Promise<void> => {
     setMetricsLoading(true);
@@ -734,6 +932,20 @@ export const AdminPage: React.FC = () => {
   }, [isAdmin, activeTab, loadMetrics]);
 
   useEffect(() => {
+    if (!isAdmin || activeTab !== 'brands') {
+      return;
+    }
+    void loadAdminBrands();
+  }, [isAdmin, activeTab, loadAdminBrands]);
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'delivery') {
+      return;
+    }
+    void loadDeliverySettings();
+  }, [isAdmin, activeTab, loadDeliverySettings]);
+
+  useEffect(() => {
     if (!isAdmin || activeTab !== 'orders') {
       return undefined;
     }
@@ -753,7 +965,7 @@ export const AdminPage: React.FC = () => {
     }
     if (activeTab === 'discounts') {
       void loadDiscounts();
-    } else if (activeTab === 'products' || activeTab === 'inventory') {
+    } else if (activeTab === 'products') {
       void loadProducts(productSearch, productPage);
     }
     // Search/page changes are handled by the debounced effect below; only tab entry matters here.
@@ -770,6 +982,52 @@ export const AdminPage: React.FC = () => {
 
     return () => window.clearTimeout(timer);
   }, [isAdmin, productSearch, productPage, loadProducts]);
+
+  // Inventory is a filtered grid of the same catalogue, read only while its tab is open.
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'inventory') {
+      return undefined;
+    }
+    const timer = window.setTimeout(
+      () => {
+        void loadInventory({
+          search: inventorySearch,
+          category: inventoryCategory,
+          brand: inventoryBrand,
+          status: inventoryStatus,
+          page: inventoryPage,
+        });
+      },
+      inventorySearch.trim().length > 0 ? 300 : 0,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isAdmin,
+    activeTab,
+    inventorySearch,
+    inventoryCategory,
+    inventoryBrand,
+    inventoryStatus,
+    inventoryPage,
+    loadInventory,
+  ]);
+
+  // The library is only read on its own tab: the filter and the page are part of the request, and a search waits for
+  // the typing to stop.
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'files') {
+      return undefined;
+    }
+    const timer = window.setTimeout(
+      () => {
+        void loadFiles(fileKind, fileSearch, filePage);
+      },
+      fileSearch.trim().length > 0 ? 300 : 0,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [isAdmin, activeTab, fileKind, fileSearch, filePage, loadFiles]);
 
   const brandLabel = useCallback(
     (value: string): string => {
@@ -788,32 +1046,14 @@ export const AdminPage: React.FC = () => {
   );
 
   const inventoryProduct = useMemo(
-    () => products.find((product) => product.id === inventoryProductId) ?? null,
-    [products, inventoryProductId],
+    () => inventoryProducts.find((product) => product.id === inventoryProductId) ?? null,
+    [inventoryProducts, inventoryProductId],
   );
 
   const inventoryVariant = useMemo(
     () => inventoryProduct?.variants.find((variant) => variant.id === inventoryVariantId) ?? null,
     [inventoryProduct, inventoryVariantId],
   );
-
-  useEffect(() => {
-    if (!products.some((product) => product.id === inventoryProductId)) {
-      setInventoryProductId(products[0]?.id ?? '');
-    }
-  }, [products, inventoryProductId]);
-
-  useEffect(() => {
-    if (!inventoryProduct) {
-      if (inventoryVariantId) {
-        setInventoryVariantId('');
-      }
-      return;
-    }
-    if (!inventoryProduct.variants.some((variant) => variant.id === inventoryVariantId)) {
-      setInventoryVariantId(inventoryProduct.variants[0]?.id ?? '');
-    }
-  }, [inventoryProduct, inventoryVariantId]);
 
   const canSetExact = Boolean(inventoryVariant?.version);
   const inventoryMode = canSetExact ? inventoryModeChoice : 'delta';
@@ -839,14 +1079,155 @@ export const AdminPage: React.FC = () => {
     setDiscountsError(null);
     setBanners([]);
     setBannersError(null);
+    setFiles([]);
+    setFilesTotal(0);
+    setFilesError(null);
     setProductDraft(null);
     setDiscountDraft(null);
+    setAdminBrands([]);
+    setAdminBrandsError(null);
+    setBrandDraft(null);
+    setInventoryProducts([]);
+    setInventoryTotal(0);
+    setInventoryTotalPages(0);
     setInventoryError(null);
+    setInventoryListError(null);
+    setInventoryAdjustOpen(false);
+    setDeliverySettings(null);
+    setDeliverySettingsError(null);
+    setDeliverySettingsFormError(null);
   };
 
   const changeProductSearch = (value: string): void => {
     setProductSearch(value);
     setProductPage(1);
+  };
+
+  const changeInventorySearch = (value: string): void => {
+    setInventorySearch(value);
+    setInventoryPage(1);
+  };
+
+  const openCreateBrand = (): void => {
+    setBrandFormError(null);
+    setUploadError(null);
+    setBrandDraft({ id: null, name: '', origin: '', logoUrl: '' });
+  };
+
+  const openEditBrand = (brand: AdminBrand): void => {
+    setBrandFormError(null);
+    setUploadError(null);
+    setBrandDraft({ id: brand.id, name: brand.name, origin: brand.origin, logoUrl: brand.logoUrl ?? '' });
+  };
+
+  const handleSaveBrand = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault();
+    if (!brandDraft) {
+      return;
+    }
+
+    const name = brandDraft.name.trim();
+    if (name.length === 0) {
+      setBrandFormError(tr('Enter the brand name.', 'أدخل اسم الماركة.'));
+      return;
+    }
+
+    const payload: BrandWrite = {
+      name,
+      origin: brandDraft.origin.trim(),
+      logoUrl: brandDraft.logoUrl.trim().length > 0 ? brandDraft.logoUrl.trim() : null,
+    };
+
+    setBrandSaving(true);
+    setBrandFormError(null);
+    try {
+      if (brandDraft.id) {
+        await adminApi.updateBrand(brandDraft.id, payload);
+      } else {
+        await adminApi.createBrand(payload);
+      }
+      setBrandDraft(null);
+      showToast(
+        brandDraft.id
+          ? tr('Brand updated.', 'تم تحديث الماركة.')
+          : tr('Brand created.', 'تم إنشاء الماركة.'),
+        'success',
+      );
+      // The product form reads the public brand list; reload both so a new brand is selectable at once.
+      await Promise.all([loadAdminBrands(), loadCatalog()]);
+    } catch (error) {
+      setBrandFormError(describeError(error));
+    } finally {
+      setBrandSaving(false);
+    }
+  };
+
+  const handleDeleteBrand = async (brand: AdminBrand): Promise<void> => {
+    if (
+      !window.confirm(
+        tr(`Delete brand "${brand.name}"?`, `حذف الماركة "${brand.name}"؟`),
+      )
+    ) {
+      return;
+    }
+    setDeletingBrandId(brand.id);
+    try {
+      await adminApi.deleteBrand(brand.id);
+      showToast(tr('Brand deleted.', 'تم حذف الماركة.'), 'success');
+      await Promise.all([loadAdminBrands(), loadCatalog()]);
+    } catch (error) {
+      showToast(describeError(error), 'error');
+    } finally {
+      setDeletingBrandId(null);
+    }
+  };
+
+  const handleSaveDeliverySettings = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault();
+
+    const deliveryFee = Number(deliverySettingsDraft.deliveryFee);
+    const freeShippingThreshold = Number(deliverySettingsDraft.freeShippingThreshold);
+    if (!Number.isFinite(deliveryFee) || deliveryFee < 0) {
+      setDeliverySettingsFormError(tr('Enter a delivery fee of 0 or more.', 'أدخل رسوم توصيل تساوي 0 أو أكثر.'));
+      return;
+    }
+    if (!Number.isFinite(freeShippingThreshold) || freeShippingThreshold < 0) {
+      setDeliverySettingsFormError(
+        tr('Enter a free-delivery threshold of 0 or more.', 'أدخل حداً للتوصيل المجاني يساوي 0 أو أكثر.'),
+      );
+      return;
+    }
+
+    const payload: DeliverySettingsWrite = { deliveryFee, freeShippingThreshold };
+    setDeliverySettingsSaving(true);
+    setDeliverySettingsFormError(null);
+    try {
+      const saved = await adminApi.updateDeliverySettings(payload);
+      setDeliverySettings(saved);
+      setDeliverySettingsDraft({
+        deliveryFee: String(saved.deliveryFee),
+        freeShippingThreshold: String(saved.freeShippingThreshold),
+      });
+      showToast(tr('Delivery fees saved.', 'تم حفظ رسوم التوصيل.'), 'success');
+      // The storefront's announcement and cart fallback read the same terms.
+      refreshDeliverySettings();
+    } catch (error) {
+      setDeliverySettingsFormError(describeError(error));
+    } finally {
+      setDeliverySettingsSaving(false);
+    }
+  };
+
+  const openInventoryAdjust = (product: Product): void => {
+    const firstVariant = product.variants[0];
+    setInventoryProductId(product.id);
+    setInventoryVariantId(firstVariant?.id ?? '');
+    setInventoryDelta('1');
+    setInventoryNewStock(String(firstVariant?.stock ?? 0));
+    setInventoryMode('delta');
+    setInventoryError(null);
+    setInventoryReason('');
+    setInventoryAdjustOpen(true);
   };
 
   const enumLabel = (value: string): string => {
@@ -862,7 +1243,7 @@ export const AdminPage: React.FC = () => {
     setProductFormError(null);
     setSkuError(null);
     setUploadError(null);
-    setProductDraft(createProductDraft(brands[0]?.name ?? '', categories[0]?.id ?? 'makeup'));
+    setProductDraft(createProductDraft(brands[0]?.id ?? '', categories[0]?.id ?? ''));
   };
 
   const openEditProduct = async (product: Product): Promise<void> => {
@@ -872,7 +1253,7 @@ export const AdminPage: React.FC = () => {
     setLoadingProductId(product.id);
     try {
       const fresh = await adminApi.product(product.id);
-      setProductDraft(productToDraft(fresh, brandLabel(fresh.brand)));
+      setProductDraft(productToDraft(fresh));
     } catch (error) {
       showToast(describeError(error), 'error');
     } finally {
@@ -933,20 +1314,89 @@ export const AdminPage: React.FC = () => {
             ? draft.images.map((image) => (image.trim().length === 0 ? url : image))
             : [...draft.images, url],
         }));
+      } else if (target === 'brand') {
+        setBrandDraft((draft) => (draft ? { ...draft, logoUrl: url } : draft));
       } else {
         patchBanner(target, (banner) => ({ ...banner, imageUrl: url }));
       }
     } catch (error) {
+      // The upload endpoint words its refusals in the language the request asked for, so its own message is shown.
+      const refusal =
+        error instanceof ApiError && error.code === 'ValidationFailed' ? error.fieldError('file') : undefined;
       reject(
-        error instanceof ApiError && error.status >= 500
-          ? tr(
-              'The server could not accept this image. Use a JPEG, PNG or WebP file under 5 MB.',
-              'تعذّر على الخادم قبول هذه الصورة. استخدم ملف JPEG أو PNG أو WebP أقل من 5 ميجابايت.',
-            )
-          : describeError(error),
+        refusal ??
+          (error instanceof ApiError && error.status >= 500
+            ? tr(
+                'The server could not accept this image. Use a JPEG, PNG or WebP file under 5 MB.',
+                'تعذّر على الخادم قبول هذه الصورة. استخدم ملف JPEG أو PNG أو WebP أقل من 5 ميجابايت.',
+              )
+            : describeError(error)),
       );
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  /**
+   * Uploads to the library, one file after another so the order they were chosen in is the order they were stored
+   * in. The size is checked here because sending eight megabytes only to be told they are too many is rude; what the
+   * file actually is remains the server's judgement, and its refusal is what gets shown.
+   */
+  const handleLibraryUpload = async (chosen: File[], kind: 'image' | 'document'): Promise<void> => {
+    const limit = kind === 'image' ? MAX_IMAGE_BYTES : MAX_DOCUMENT_BYTES;
+    const megabytes = Math.round(limit / (1024 * 1024));
+    setLibraryUploadError(null);
+    setLibraryUploading(true);
+
+    let stored = 0;
+    try {
+      for (const file of chosen) {
+        if (file.size > limit) {
+          setLibraryUploadError(
+            tr(
+              `${file.name} is larger than ${megabytes} MB.`,
+              `حجم ${file.name} أكبر من ${megabytes} ميجابايت.`,
+            ),
+          );
+          break;
+        }
+
+        try {
+          if (kind === 'image') {
+            await adminApi.uploadImage(file);
+          } else {
+            await adminApi.uploadDocument(file);
+          }
+          stored += 1;
+        } catch (error) {
+          // The API words its refusals in the language the request asked for, so its own message is shown.
+          const refusal =
+            error instanceof ApiError && error.code === 'ValidationFailed' ? error.fieldError('file') : undefined;
+          setLibraryUploadError(`${file.name}: ${refusal ?? describeError(error)}`);
+          break;
+        }
+      }
+    } finally {
+      setLibraryUploading(false);
+    }
+
+    if (stored > 0) {
+      showToast(
+        tr(`Stored ${stored} file(s).`, `تم تخزين ${stored} ملف.`),
+        'success',
+      );
+      setFilePage(1);
+      await loadFiles(fileKind, fileSearch, 1);
+    }
+  };
+
+  const handleCopyAddress = async (file: StoredFile): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(new URL(fileUrl(file.url), window.location.href).href);
+      setCopiedFileId(file.id);
+      window.setTimeout(() => setCopiedFileId((current) => (current === file.id ? null : current)), 1500);
+    } catch {
+      showToast(tr('The address could not be copied.', 'تعذّر نسخ العنوان.'), 'error');
     }
   };
 
@@ -972,41 +1422,6 @@ export const AdminPage: React.FC = () => {
         tr(
           'Add at least one product image: upload a file or paste an image URL.',
           'أضف صورة واحدة على الأقل للمنتج: ارفع ملفاً أو الصق رابط صورة.',
-        ),
-      );
-      return;
-    }
-
-    if (productDraft.variants.length === 0) {
-      fail(tr('A product needs at least one variant.', 'يحتاج المنتج إلى درجة واحدة على الأقل.'));
-      return;
-    }
-
-    const skus = productDraft.variants.map((variant) => variant.sku.trim().toUpperCase());
-    if (skus.some((sku) => sku.length === 0)) {
-      fail(tr('Every variant needs a SKU.', 'كل درجة تحتاج إلى كود SKU.'), true);
-      return;
-    }
-    if (new Set(skus).size !== skus.length) {
-      fail(
-        tr(
-          'Two variants of this product use the same SKU. SKUs must be unique.',
-          'درجتان في هذا المنتج تستخدمان نفس كود SKU. يجب أن تكون الأكواد فريدة.',
-        ),
-        true,
-      );
-      return;
-    }
-
-    if (
-      productDraft.variants.some(
-        (variant) => variant.shadeHex.trim().length > 0 && !/^#[0-9a-fA-F]{6}$/.test(variant.shadeHex.trim()),
-      )
-    ) {
-      fail(
-        tr(
-          'Shade colour must be a hex value such as #BD6B73.',
-          'يجب أن يكون لون الدرجة بصيغة hex مثل ‎#BD6B73.',
         ),
       );
       return;
@@ -1096,6 +1511,9 @@ export const AdminPage: React.FC = () => {
     try {
       const updated = await adminApi.adjustInventory(payload);
       setProducts((previous) => previous.map((product) => (product.id === updated.id ? updated : product)));
+      setInventoryProducts((previous) =>
+        previous.map((product) => (product.id === updated.id ? updated : product)),
+      );
       const nextStock = updated.variants.find((variant) => variant.id === inventoryVariant.id)?.stock ?? 0;
       showToast(
         tr(
@@ -1110,7 +1528,13 @@ export const AdminPage: React.FC = () => {
       if (error instanceof ApiError && (error.code === 'InventoryConflict' || error.code === 'OutcomeUnknown')) {
         // Show the stock that is actually stored now, never the stale figure (a lost commit acknowledgement
         // must not invite a blind retry of a relative adjustment).
-        void loadProducts(productSearch, productPage);
+        void loadInventory({
+          search: inventorySearch,
+          category: inventoryCategory,
+          brand: inventoryBrand,
+          status: inventoryStatus,
+          page: inventoryPage,
+        });
       }
     } finally {
       setInventorySaving(false);
@@ -1208,10 +1632,13 @@ export const AdminPage: React.FC = () => {
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'overview', label: t('admin.tabOverview') },
     { id: 'products', label: t('admin.tabProducts') },
+    { id: 'brands', label: t('admin.tabBrands') },
     { id: 'orders', label: t('admin.tabOrders') },
     { id: 'inventory', label: t('admin.tabInventory') },
+    { id: 'delivery', label: t('admin.tabDelivery') },
     { id: 'discounts', label: t('admin.tabDiscounts') },
     { id: 'banners', label: t('admin.tabBanners') },
+    { id: 'files', label: t('admin.tabFiles') },
   ];
 
   if (!isAdmin) {
@@ -1225,8 +1652,8 @@ export const AdminPage: React.FC = () => {
             <h2 className="font-serif text-2xl font-bold text-[#2D1E2F]">{t('admin.title')}</h2>
             <p className="text-xs text-[#8B6E7E] mt-1.5 leading-relaxed">
               {tr(
-                'This area is restricted to store administrators. Sign in with an administrator account to manage products, inventory, discounts, and banners. Server-side role checks enforce the same rule.',
-                'هذه المنطقة مخصصة لمسؤولي المتجر فقط. سجّل الدخول بحساب مسؤول لإدارة المنتجات والمخزون والخصومات والبانرات. يفرض الخادم نفس القاعدة على مستوى الصلاحيات.',
+                'This area is restricted to store administrators. Sign in with an administrator account to manage products, brands, inventory, discounts, and banners. Server-side role checks enforce the same rule.',
+                'هذه المنطقة مخصصة لمسؤولي المتجر فقط. سجّل الدخول بحساب مسؤول لإدارة المنتجات والماركات والمخزون والخصومات والبانرات. يفرض الخادم نفس القاعدة على مستوى الصلاحيات.',
               )}
             </p>
             {user && (
@@ -1254,8 +1681,8 @@ export const AdminPage: React.FC = () => {
           <h1 className="font-serif text-2xl sm:text-3xl font-bold">{t('admin.title')}</h1>
           <p className="text-xs text-[#C7B5BD]">
             {tr(
-              'Manage products, inventory, orders, discount codes, and homepage banners.',
-              'إدارة المنتجات والمخزون والطلبات وأكواد الخصم وبانرات الصفحة الرئيسية.',
+              'Manage products, brands, inventory, orders, discount codes, and homepage banners.',
+              'إدارة المنتجات والماركات والمخزون والطلبات وأكواد الخصم وبانرات الصفحة الرئيسية.',
             )}
           </p>
         </div>
@@ -1530,12 +1957,12 @@ export const AdminPage: React.FC = () => {
                               )}
                               <div>
                                 <p className="font-bold text-[#2D1E2F]">{l(product.name)}</p>
-                                <p className="text-[11px] text-[#8B6E7E]">{brandLabel(product.brand)}</p>
+                                <p className="text-[11px] text-[#8B6E7E]">{brandLabel(product.brandId)}</p>
                               </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 uppercase text-[11px] font-semibold text-[#503E48]">
-                            {categoryLabel(product.category)}
+                            {categoryLabel(product.categoryId)}
                           </td>
                           <td className="py-3 px-4 font-bold text-[#8B263E]">
                             {formatMoney(product.price, language)}
@@ -1616,6 +2043,137 @@ export const AdminPage: React.FC = () => {
               >
                 {tr('Next', 'التالي')}
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- 2b. BRANDS TAB ---------------- */}
+      {activeTab === 'brands' && (
+        <div className="space-y-4" data-panel="brands">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-sm text-[#2D1E2F]">{tr('Brands', 'الماركات')}</h3>
+              <p className="text-xs text-[#8B6E7E]">
+                {tr(
+                  'The makers whose products the store sells. Customers can filter the shop by brand; a brand with products cannot be deleted.',
+                  'العلامات التجارية التي يبيع المتجر منتجاتها. يمكن للعملاء تصفية المتجر حسب الماركة، ولا يمكن حذف ماركة ما زالت مرتبطة بمنتجات.',
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openCreateBrand}
+              className="px-4 py-2 bg-[#3B2332] text-white rounded-xl text-xs font-bold hover:bg-[#523347] transition flex items-center justify-center gap-1.5 shadow-xs shrink-0"
+            >
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              <span>{tr('New brand', 'ماركة جديدة')}</span>
+            </button>
+          </div>
+
+          {adminBrandsError && (
+            <div
+              role="alert"
+              className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 flex items-center justify-between gap-2"
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+                <span>{adminBrandsError}</span>
+              </span>
+              <button
+                onClick={() => void loadAdminBrands()}
+                className="px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-bold flex items-center gap-1.5 hover:bg-rose-100"
+              >
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                {tr('Retry', 'إعادة المحاولة')}
+              </button>
+            </div>
+          )}
+
+          {adminBrandsLoading ? (
+            <div className="bg-white rounded-3xl border border-[#E8D6D1] p-10 text-center text-xs text-[#8B6E7E]">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" aria-hidden="true" />
+              {tr('Loading brands...', 'جارٍ تحميل الماركات...')}
+            </div>
+          ) : adminBrands.length === 0 ? (
+            !adminBrandsError && (
+              <div
+                className="bg-white rounded-3xl border border-[#E8D6D1] p-10 text-center text-xs text-[#8B6E7E] space-y-2"
+                data-empty="brands"
+              >
+                <Award className="w-8 h-8 mx-auto text-[#D4A29C]" aria-hidden="true" />
+                <p className="font-bold text-[#2D1E2F]">{tr('No brands yet.', 'لا توجد ماركات بعد.')}</p>
+                <p>{tr('Create a brand before adding products to it.', 'أنشئ ماركة قبل إضافة منتجات إليها.')}</p>
+              </div>
+            )
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {adminBrands.map((brand) => (
+                <article
+                  key={brand.id}
+                  data-brand-admin={brand.id}
+                  data-brand-products={brand.productCount}
+                  className="bg-white rounded-2xl border border-[#E8D6D1] p-4 shadow-xs flex flex-col gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    {brand.logoUrl ? (
+                      <img
+                        src={mediaUrl(brand.logoUrl)}
+                        alt={brand.name}
+                        loading="lazy"
+                        className="w-12 h-12 object-cover rounded-xl border border-[#E8D6D1] shrink-0"
+                      />
+                    ) : (
+                      <span className="w-12 h-12 rounded-xl border border-dashed border-[#E8D6D1] bg-[#FAF7F5] flex items-center justify-center text-[#B49AA6] shrink-0">
+                        <Award className="w-5 h-5" aria-hidden="true" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-[#2D1E2F] break-words">{brand.name}</p>
+                      <p className="text-[11px] text-[#8B6E7E]">
+                        {brand.origin.trim().length > 0 ? brand.origin : tr('No origin set', 'لم يُحدد الأصل')}
+                      </p>
+                      <p className="text-[10px] font-mono text-[#B49AA6] break-all" dir="ltr">
+                        {brand.slug}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 border-t border-[#F0E3DF] pt-3">
+                    <span className="text-[11px] font-semibold text-[#503E48]">
+                      {tr(
+                        `${brand.productCount} product${brand.productCount === 1 ? '' : 's'}`,
+                        `${brand.productCount} منتج`,
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditBrand(brand)}
+                        className="p-1.5 hover:bg-[#F3E7E4] rounded-lg text-[#3B2332] transition"
+                        aria-label={`${tr('Edit brand', 'تعديل الماركة')}: ${brand.name}`}
+                        title={tr('Edit brand', 'تعديل الماركة')}
+                      >
+                        <Edit3 className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteBrand(brand)}
+                        disabled={deletingBrandId === brand.id}
+                        className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition disabled:opacity-40"
+                        aria-label={`${tr('Delete brand', 'حذف الماركة')}: ${brand.name}`}
+                        title={tr('Delete brand', 'حذف الماركة')}
+                      >
+                        {deletingBrandId === brand.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </div>
@@ -1708,7 +2266,9 @@ export const AdminPage: React.FC = () => {
                   {orders.map((order) => {
                     const nextStatuses = ORDER_STATUS_FLOW[order.status] ?? [];
                     const canCollect =
-                      (order.status === 'Shipped' || order.status === 'Delivered') &&
+                      (order.status === 'Shipped' ||
+                        order.status === 'OutForDelivery' ||
+                        order.status === 'Delivered') &&
                       order.paymentStatus !== 'Collected';
                     const busy = orderBusyId === order.id;
 
@@ -1821,231 +2381,407 @@ export const AdminPage: React.FC = () => {
 
       {/* ---------------- 4. INVENTORY TAB ---------------- */}
       {activeTab === 'inventory' && (
-        <div className="bg-white rounded-3xl border border-[#E8D6D1] p-6 shadow-xs space-y-5" data-panel="inventory">
-          <div className="pb-3 border-b border-[#F0E3DF]">
-            <h3 className="font-bold text-sm text-[#2D1E2F]">{tr('Variant inventory', 'مخزون الدرجات')}</h3>
-            <p className="text-xs text-[#8B6E7E]">
+        <div className="space-y-4" data-panel="inventory">
+          <div className="bg-white rounded-3xl border border-[#E8D6D1] p-6 shadow-xs space-y-4">
+            <div className="pb-3 border-b border-[#F0E3DF]">
+              <h3 className="font-bold text-sm text-[#2D1E2F]">{tr('Inventory stock', 'المخزون والكميات')}</h3>
+              <p className="text-xs text-[#8B6E7E]">
+                {tr(
+                  'Every product with its stock at a glance. Filter the catalogue, then open a product to add or remove units with a reason.',
+                  'كل منتج ومخزونه في نظرة واحدة. صفِّ الكتالوج ثم افتح منتجاً لإضافة وحدات أو خصمها مع ذكر السبب.',
+                )}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <Field label={tr('Search by name or SKU', 'البحث بالاسم أو SKU')}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={inventorySearch}
+                    onChange={(event) => changeInventorySearch(event.target.value)}
+                    aria-label={tr('Search inventory by product name or SKU', 'ابحث في المخزون باسم المنتج أو SKU')}
+                    placeholder={tr('Product name or SKU...', 'اسم المنتج أو SKU...')}
+                    className="w-full bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl py-2 px-9 text-xs focus:outline-none focus:ring-1 focus:ring-[#8B263E]"
+                  />
+                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-2.5 rtl:left-auto rtl:right-3" aria-hidden="true" />
+                </div>
+              </Field>
+
+              <Field label={tr('Category', 'الفئة')}>
+                <select
+                  value={inventoryCategory}
+                  onChange={(event) => {
+                    setInventoryCategory(event.target.value);
+                    setInventoryPage(1);
+                  }}
+                  className={SELECT_CLASS}
+                >
+                  <option value="all">{tr('All categories', 'كل الفئات')}</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.slug}>
+                      {l(category.name)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label={tr('Brand', 'الماركة')}>
+                <select
+                  value={inventoryBrand}
+                  onChange={(event) => {
+                    setInventoryBrand(event.target.value);
+                    setInventoryPage(1);
+                  }}
+                  className={SELECT_CLASS}
+                >
+                  <option value="all">{tr('All brands', 'كل الماركات')}</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.slug}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label={tr('Active state', 'حالة التفعيل')}>
+                <select
+                  value={inventoryStatus}
+                  onChange={(event) => {
+                    setInventoryStatus(event.target.value);
+                    setInventoryPage(1);
+                  }}
+                  className={SELECT_CLASS}
+                >
+                  <option value="all">{tr('All products', 'كل المنتجات')}</option>
+                  <option value="published">{tr('Active', 'نشط')}</option>
+                  <option value="archived">{tr('Inactive (archived)', 'غير نشط (مؤرشف)')}</option>
+                </select>
+              </Field>
+            </div>
+
+            <p className="text-[11px] text-[#8B6E7E]" data-field="inventory-count">
               {tr(
-                'Add or remove units with a reason. The server rejects adjustments that would drive stock below zero. Every change is recorded in the audit log.',
-                'أضف وحدات أو اخصمها مع ذكر السبب. يرفض الخادم أي تعديل يؤدي إلى مخزون سالب. يُسجَّل كل تغيير في سجل المراجعة.',
+                `Showing ${inventoryProducts.length} of ${inventoryTotal} products (page ${inventoryPage} of ${Math.max(1, inventoryTotalPages)}).`,
+                `عرض ${inventoryProducts.length} من ${inventoryTotal} منتجاً (الصفحة ${inventoryPage} من ${Math.max(1, inventoryTotalPages)}).`,
               )}
             </p>
           </div>
 
-          <div className="relative max-w-sm">
-            <input
-              type="text"
-              value={productSearch}
-              onChange={(event) => changeProductSearch(event.target.value)}
-              aria-label={tr('Search products', 'ابحث في المنتجات')}
-              placeholder={tr('Search products by title or brand...', 'ابحث عن المنتجات بالاسم أو الماركة...')}
-              className="w-full bg-white border border-[#E8D6D1] rounded-xl py-2 px-9 text-xs focus:outline-none focus:ring-1 focus:ring-[#8B263E]"
-            />
-            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-2.5 rtl:left-auto rtl:right-3" aria-hidden="true" />
-          </div>
-
-          {productsError && (
-            <div role="alert" className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 flex items-center justify-between gap-2">
-              <span>{productsError}</span>
+          {inventoryListError && (
+            <div
+              role="alert"
+              className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 flex items-center justify-between gap-2"
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+                <span>{inventoryListError}</span>
+              </span>
               <button
-                onClick={() => void loadProducts(productSearch, productPage)}
-                className="px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-bold hover:bg-rose-100"
+                type="button"
+                onClick={() =>
+                  void loadInventory({
+                    search: inventorySearch,
+                    category: inventoryCategory,
+                    brand: inventoryBrand,
+                    status: inventoryStatus,
+                    page: inventoryPage,
+                  })
+                }
+                className="px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-bold flex items-center gap-1.5 hover:bg-rose-100"
               >
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                 {tr('Retry', 'إعادة المحاولة')}
               </button>
             </div>
           )}
 
-          {products.length === 0 ? (
-            !productsError && (
-              <div data-empty="inventory" className="py-10 text-center text-xs text-[#8B6E7E]">
-                <Package className="w-8 h-8 mx-auto text-[#D4A29C] mb-2" aria-hidden="true" />
+          {inventoryLoading ? (
+            <div className="bg-white rounded-3xl border border-[#E8D6D1] p-10 text-center text-xs text-[#8B6E7E]">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" aria-hidden="true" />
+              {tr('Loading inventory...', 'جارٍ تحميل المخزون...')}
+            </div>
+          ) : inventoryProducts.length === 0 ? (
+            !inventoryListError && (
+              <div
+                className="bg-white rounded-3xl border border-[#E8D6D1] p-10 text-center text-xs text-[#8B6E7E] space-y-2"
+                data-empty="inventory"
+              >
+                <Package className="w-8 h-8 mx-auto text-[#D4A29C]" aria-hidden="true" />
                 <p className="font-bold text-[#2D1E2F]">{tr('No products available.', 'لا توجد منتجات متاحة.')}</p>
-                <p>{tr('Add a product or clear the search before adjusting stock.', 'أضف منتجاً أو امسح البحث قبل تعديل المخزون.')}</p>
+                <p>
+                  {tr(
+                    'Add a product or clear the filters before adjusting stock.',
+                    'أضف منتجاً أو امسح عوامل التصفية قبل تعديل المخزون.',
+                  )}
+                </p>
               </div>
             )
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <Field label={tr('Product', 'المنتج')}>
-                <select
-                  value={inventoryProductId}
-                  onChange={(event) => {
-                    setInventoryProductId(event.target.value);
-                    setInventoryVariantId('');
-                  }}
-                  className={SELECT_CLASS}
-                >
-                  <option value="">{tr('Select a product', 'اختر منتجاً')}</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {l(product.name)} — {brandLabel(product.brand)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label={tr('Variant', 'الدرجة')}>
-                <select
-                  value={inventoryVariantId}
-                  onChange={(event) => setInventoryVariantId(event.target.value)}
-                  disabled={!inventoryProduct}
-                  className={SELECT_CLASS}
-                >
-                  <option value="">{tr('Select a variant', 'اختر درجة')}</option>
-                  {inventoryProduct?.variants.map((variant) => (
-                    <option key={variant.id} value={variant.id}>
-                      {variant.sku} —{' '}
-                      {variant.shadeName ? l(variant.shadeName) : variant.size ?? tr('Standard', 'افتراضي')} (
-                      {variant.stock})
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <div
-                className="bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-3"
-                data-field="current-stock"
-                data-stock-state={stockState ?? undefined}
-              >
-                <span className="block text-[10px] font-bold uppercase text-[#8B6E7E]">
-                  {tr('Current stock', 'المخزون الحالي')}
-                </span>
-                <p className="font-serif text-2xl font-bold text-[#2D1E2F]">
-                  {inventoryVariant ? `${inventoryVariant.stock} ${tr('units', 'وحدة')}` : '—'}
-                </p>
-                {stockState && (
-                  <span
-                    className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      stockState === 'out'
-                        ? 'bg-rose-100 text-rose-800'
-                        : stockState === 'low'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                    }`}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {inventoryProducts.map((product) => {
+                const totalStock = product.variants.reduce((sum, variant) => sum + variant.stock, 0);
+                const lowStock = product.variants.filter(
+                  (variant) => variant.isActive !== false && variant.stock > 0 && variant.stock <= 5,
+                ).length;
+                const outOfStock = product.variants.filter((variant) => variant.stock === 0).length;
+                return (
+                  <article
+                    key={product.id}
+                    data-inventory-product={product.id}
+                    data-product-status={product.status}
+                    data-inventory-stock={totalStock}
+                    className="bg-white rounded-2xl border border-[#E8D6D1] p-4 shadow-xs flex flex-col gap-3 text-xs"
                   >
-                    {stockState === 'out'
-                      ? tr('Out of stock', 'نفد المخزون')
-                      : stockState === 'low'
-                        ? tr('Low stock (1–5)', 'مخزون منخفض (1–5)')
-                        : tr('In stock', 'متوفر')}
-                  </span>
-                )}
-                {inventoryVariant && inventoryVariant.isActive === false && (
-                  <span className="block text-[10px] font-bold text-stone-600 mt-1">
-                    {tr('Inactive variant', 'درجة غير مفعّلة')}
-                  </span>
-                )}
-              </div>
+                    <div className="flex items-start gap-3">
+                      {product.images[0] ? (
+                        <img
+                          src={mediaUrl(product.images[0])}
+                          alt={l(product.name)}
+                          loading="lazy"
+                          className="w-12 h-12 object-cover rounded-xl border border-[#E8D6D1] shrink-0"
+                        />
+                      ) : (
+                        <span className="w-12 h-12 rounded-xl border border-dashed border-[#E8D6D1] bg-[#FAF7F5] flex items-center justify-center text-[#B49AA6] shrink-0">
+                          <ImageIcon className="w-5 h-5" aria-hidden="true" />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-[#2D1E2F] leading-snug break-words">{l(product.name)}</p>
+                          <span
+                            className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              product.status === 'published'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-stone-200 text-stone-800'
+                            }`}
+                          >
+                            {product.status === 'published' ? tr('Active', 'نشط') : tr('Inactive', 'غير نشط')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#8B6E7E]">
+                          {brandLabel(product.brandId)} • {categoryLabel(product.categoryId)}
+                        </p>
+                        <p className="text-[10px] font-mono text-[#B49AA6] break-all" dir="ltr">
+                          {product.variants.map((variant) => variant.sku).join(', ')}
+                        </p>
+                      </div>
+                    </div>
 
-              <fieldset className="space-y-1">
-                <legend className="block font-bold mb-1">{tr('Adjustment type', 'نوع التعديل')}</legend>
-                <label className="flex items-center gap-2 font-semibold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="inventory-mode"
-                    value="delta"
-                    checked={inventoryMode === 'delta'}
-                    onChange={() => setInventoryMode('delta')}
-                    className="accent-[#8B263E]"
-                  />
-                  <span>{tr('Add / remove units (+/−)', 'إضافة / خصم وحدات (+/−)')}</span>
-                </label>
-                <label
-                  className={`flex items-center gap-2 font-semibold ${canSetExact ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                  title={
-                    canSetExact
-                      ? undefined
-                      : tr(
-                          'Exact-count mode needs the variant row version from the server, which is not available for this variant.',
-                          'يحتاج وضع العدد الدقيق إلى إصدار صف الدرجة من الخادم وهو غير متاح لهذه الدرجة.',
-                        )
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="inventory-mode"
-                    value="absolute"
-                    checked={inventoryMode === 'absolute'}
-                    disabled={!canSetExact}
-                    onChange={() => setInventoryMode('absolute')}
-                    className="accent-[#8B263E]"
-                  />
-                  <span>{tr('Set exact count (stock count correction)', 'تحديد العدد الدقيق (تصحيح الجرد)')}</span>
-                </label>
-                {!canSetExact && (
-                  <p className="text-[10px] text-[#8B6E7E]" data-field="exact-unavailable">
-                    {tr(
-                      'Exact-count mode is unavailable: the server did not provide a row version for this variant, so a stale count could not be detected.',
-                      'وضع العدد الدقيق غير متاح: لم يوفّر الخادم إصدار الصف لهذه الدرجة، لذا لا يمكن اكتشاف عدّ قديم.',
-                    )}
-                  </p>
-                )}
-              </fieldset>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-[#FAF7F5] rounded-xl p-2.5">
+                        <span className="block text-[10px] font-bold uppercase text-[#8B6E7E]">
+                          {tr('Total stock', 'إجمالي المخزون')}
+                        </span>
+                        <span className="font-serif text-xl font-bold text-[#2D1E2F]">{totalStock}</span>
+                        <span className="text-[10px] text-[#8B6E7E]"> {tr('units', 'وحدة')}</span>
+                      </div>
+                      <div className="bg-[#FAF7F5] rounded-xl p-2.5">
+                        <span className="block text-[10px] font-bold uppercase text-[#8B6E7E]">
+                          {tr('Variants', 'الدرجات')}
+                        </span>
+                        <span className="font-serif text-xl font-bold text-[#2D1E2F]">{product.variants.length}</span>
+                      </div>
+                    </div>
 
-              {inventoryMode === 'delta' ? (
-                <Field label={tr('Adjustment (+/−)', 'التعديل (+/−)')}>
-                  <input
-                    type="number"
-                    step="1"
-                    value={inventoryDelta}
-                    onChange={(event) => setInventoryDelta(event.target.value)}
-                    className={INPUT_CLASS}
-                  />
-                  <span className="block text-[10px] text-[#8B6E7E] mt-1">
-                    {tr('Use a negative number to remove units.', 'استخدم رقماً سالباً لخفض الكمية.')}
-                  </span>
-                </Field>
-              ) : (
-                <Field label={tr('New stock count', 'العدد الجديد للمخزون')}>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={inventoryNewStock}
-                    onChange={(event) => setInventoryNewStock(event.target.value)}
-                    className={INPUT_CLASS}
-                  />
-                  <span className="block text-[10px] text-[#8B6E7E] mt-1">
-                    {tr(
-                      'Rejected if the stock changed since this page loaded.',
-                      'يُرفض التعديل إذا تغيّر المخزون منذ تحميل هذه الصفحة.',
-                    )}
-                  </span>
-                </Field>
-              )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {outOfStock > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                          {tr(`${outOfStock} out of stock`, `${outOfStock} نفد مخزونه`)}
+                        </span>
+                      )}
+                      {lowStock > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                          {tr(`${lowStock} low stock`, `${lowStock} مخزون منخفض`)}
+                        </span>
+                      )}
+                      {product.variants.length === 0 && (
+                        <span className="text-[10px] text-[#8B6E7E]">{tr('No variants', 'لا توجد درجات')}</span>
+                      )}
+                    </div>
 
-              <Field label={tr('Reason *', 'السبب *')} className="md:col-span-2">
-                <input
-                  type="text"
-                  value={inventoryReason}
-                  onChange={(event) => setInventoryReason(event.target.value)}
-                  placeholder={tr('e.g. Stock count correction', 'مثال: تصحيح جرد المخزون')}
-                  className={INPUT_CLASS}
-                />
-              </Field>
-
-              {inventoryError && (
-                <p
-                  role="alert"
-                  data-error="inventory"
-                  className="md:col-span-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold"
-                >
-                  {inventoryError}
-                </p>
-              )}
-
-              <div className="md:col-span-2 flex justify-end">
-                <button
-                  onClick={() => void handleAdjustInventory()}
-                  disabled={inventorySaving || !inventoryProduct || !inventoryVariant}
-                  className="px-5 py-2.5 bg-[#3B2332] text-white rounded-xl font-bold hover:bg-[#523347] transition flex items-center gap-2 disabled:opacity-50"
-                >
-                  {inventorySaving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-                  {tr('Apply adjustment', 'تطبيق التعديل')}
-                </button>
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => openInventoryAdjust(product)}
+                      className="mt-auto w-full py-2 rounded-xl bg-[#3B2332] text-white text-xs font-bold hover:bg-[#523347] transition flex items-center justify-center gap-1.5"
+                    >
+                      <Package className="w-3.5 h-3.5" aria-hidden="true" />
+                      {tr('Adjust stock', 'تعديل المخزون')}
+                    </button>
+                  </article>
+                );
+              })}
             </div>
           )}
+
+          {inventoryTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setInventoryPage((page) => Math.max(1, page - 1))}
+                disabled={inventoryPage <= 1 || inventoryLoading}
+                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
+              >
+                {tr('Previous', 'السابق')}
+              </button>
+              <span className="text-[#8B6E7E]">
+                {inventoryPage} / {inventoryTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setInventoryPage((page) => Math.min(inventoryTotalPages, page + 1))}
+                disabled={inventoryPage >= inventoryTotalPages || inventoryLoading}
+                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
+              >
+                {tr('Next', 'التالي')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- 4b. DELIVERY FEES TAB ---------------- */}
+      {activeTab === 'delivery' && (
+        <div className="space-y-4" data-panel="delivery">
+          <div className="bg-white rounded-3xl border border-[#E8D6D1] p-6 shadow-xs space-y-4">
+            <div className="pb-3 border-b border-[#F0E3DF] flex items-start gap-3">
+              <span className="w-10 h-10 rounded-xl bg-[#FAF3F1] text-[#8B263E] flex items-center justify-center shrink-0">
+                <Truck className="w-5 h-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="font-bold text-sm text-[#2D1E2F]">{tr('Delivery fees', 'رسوم التوصيل')}</h3>
+                <p className="text-xs text-[#8B6E7E]">
+                  {tr(
+                    'What every new quote and order pays for delivery. Existing orders keep the fee they were charged.',
+                    'قيمة التوصيل لكل عرض سعر وطلب جديد. تحتفظ الطلبات الحالية بالرسوم التي تم تحصيلها وقت الطلب.',
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {deliverySettingsError && (
+              <div
+                role="alert"
+                className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 flex items-center justify-between gap-2"
+              >
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+                  <span>{deliverySettingsError}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void loadDeliverySettings()}
+                  className="px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-bold flex items-center gap-1.5 hover:bg-rose-100"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                  {tr('Retry', 'إعادة المحاولة')}
+                </button>
+              </div>
+            )}
+
+            {deliverySettingsLoading ? (
+              <div className="py-10 text-center text-xs text-[#8B6E7E]">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" aria-hidden="true" />
+                {tr('Loading delivery fees...', 'جارٍ تحميل رسوم التوصيل...')}
+              </div>
+            ) : deliverySettings ? (
+              <form onSubmit={(event) => void handleSaveDeliverySettings(event)} className="space-y-4 text-xs" data-form="delivery">
+                {deliverySettingsFormError && (
+                  <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{deliverySettingsFormError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label={tr('Standard delivery fee (EGP) *', 'رسوم التوصيل الأساسية (ج.م) *')}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      value={deliverySettingsDraft.deliveryFee}
+                      onChange={(event) =>
+                        setDeliverySettingsDraft((current) => ({ ...current, deliveryFee: event.target.value }))
+                      }
+                      className={`${INPUT_CLASS} font-bold text-[#8B263E]`}
+                    />
+                    <span className="block text-[10px] text-[#8B6E7E] mt-1">
+                      {tr(
+                        'Charged when an order is below the free-delivery threshold.',
+                        'تُحصَّل عندما يكون الطلب أقل من حد التوصيل المجاني.',
+                      )}
+                    </span>
+                  </Field>
+
+                  <Field label={tr('Free delivery threshold (EGP) *', 'حد التوصيل المجاني (ج.م) *')}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      value={deliverySettingsDraft.freeShippingThreshold}
+                      onChange={(event) =>
+                        setDeliverySettingsDraft((current) => ({
+                          ...current,
+                          freeShippingThreshold: event.target.value,
+                        }))
+                      }
+                      className={`${INPUT_CLASS} font-bold text-[#8B263E]`}
+                    />
+                    <span className="block text-[10px] text-[#8B6E7E] mt-1">
+                      {tr(
+                        'At or above this subtotal, delivery is free. Zero makes every order free.',
+                        'عند هذا المجموع الفرعي أو أعلى منه يكون التوصيل مجانياً. القيمة صفر تجعل كل الطلبات مجانية.',
+                      )}
+                    </span>
+                  </Field>
+                </div>
+
+                <div className="bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-3 text-[#503E48]" data-field="delivery-preview">
+                  {Number(deliverySettingsDraft.deliveryFee) === 0 ||
+                  Number(deliverySettingsDraft.freeShippingThreshold) === 0 ? (
+                    <p className="font-semibold text-[#2D1E2F]">
+                      {tr('Every order gets free delivery.', 'كل الطلبات تحصل على توصيل مجاني.')}
+                    </p>
+                  ) : (
+                    <p>
+                      {tr(
+                        `Orders below ${formatMoney(Number(deliverySettingsDraft.freeShippingThreshold), language)} pay ${formatMoney(Number(deliverySettingsDraft.deliveryFee), language)}; at or above that subtotal delivery is free.`,
+                        `الطلبات الأقل من ${formatMoney(Number(deliverySettingsDraft.freeShippingThreshold), language)} تدفع ${formatMoney(Number(deliverySettingsDraft.deliveryFee), language)}؛ وعند هذا المجموع أو أعلى يكون التوصيل مجانياً.`,
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-[10px] text-[#8B6E7E]">
+                  {tr(
+                    'A quote taken before this change is re-priced when the order is placed and refused if the total moved. This also updates the storefront announcement.',
+                    'يُعاد تسعير أي عرض سعر سابق عند إتمام الطلب، ويُرفض إذا تغيّر الإجمالي. يؤدي هذا أيضاً إلى تحديث إعلان المتجر.',
+                  )}
+                </p>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E8D6D1]">
+                  <span className="text-[10px] text-[#8B6E7E]">
+                    {deliverySettings.updatedAtUtc && new Date(deliverySettings.updatedAtUtc).getFullYear() > 2000
+                      ? tr(
+                          `Last updated ${new Date(deliverySettings.updatedAtUtc).toLocaleString('en-GB')}.`,
+                          `آخر تحديث ${new Date(deliverySettings.updatedAtUtc).toLocaleString('ar-EG')}.`,
+                        )
+                      : tr('Not changed since the store was set up.', 'لم تُغيَّر منذ إعداد المتجر.')}
+                  </span>
+                  <button
+                    type="submit"
+                    disabled={deliverySettingsSaving}
+                    className="px-6 py-2.5 bg-[#3B2332] text-white rounded-xl font-bold hover:bg-[#523347] transition flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {deliverySettingsSaving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+                    {tr('Save delivery fees', 'حفظ رسوم التوصيل')}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -2385,6 +3121,225 @@ export const AdminPage: React.FC = () => {
         </div>
       )}
 
+      {/* ---------------- 7. FILES TAB ---------------- */}
+      {activeTab === 'files' && (
+        <div className="space-y-4" data-panel="files">
+          <div className="bg-white rounded-3xl border border-[#E8D6D1] p-6 shadow-xs space-y-4">
+            <div>
+              <h3 className="font-bold text-sm text-[#2D1E2F]">{tr('Uploaded files', 'الملفات المرفوعة')}</h3>
+              <p className="text-xs text-[#8B6E7E]">
+                {tr(
+                  'Pictures are public: paste a stored address into a product, a category or a banner. A document is private and can only be downloaded from here.',
+                  'الصور عامة: الصق عنوان الصورة المخزّنة في منتج أو فئة أو بانر. أما المستند فخاص ولا يمكن تنزيله إلا من هنا.',
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="px-3 py-2 bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl text-xs font-bold text-[#3B2332] hover:bg-[#F3E7E4] transition flex items-center gap-1.5 cursor-pointer focus-within:ring-2 focus-within:ring-[#8B263E]">
+                {libraryUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ImageIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                <span>{tr('Upload pictures', 'رفع صور')}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  data-upload="library-image"
+                  disabled={libraryUploading}
+                  onChange={(event) => {
+                    const chosen = Array.from(event.target.files ?? []);
+                    event.target.value = '';
+                    if (chosen.length > 0) {
+                      void handleLibraryUpload(chosen, 'image');
+                    }
+                  }}
+                />
+              </label>
+              <label className="px-3 py-2 bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl text-xs font-bold text-[#3B2332] hover:bg-[#F3E7E4] transition flex items-center gap-1.5 cursor-pointer focus-within:ring-2 focus-within:ring-[#8B263E]">
+                {libraryUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                <span>{tr('Upload documents', 'رفع مستندات')}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.xlsx,.csv,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/vnd.ms-excel,text/plain"
+                  className="sr-only"
+                  data-upload="library-document"
+                  disabled={libraryUploading}
+                  onChange={(event) => {
+                    const chosen = Array.from(event.target.files ?? []);
+                    event.target.value = '';
+                    if (chosen.length > 0) {
+                      void handleLibraryUpload(chosen, 'document');
+                    }
+                  }}
+                />
+              </label>
+              <span className="text-[10px] text-[#8B6E7E]">
+                {tr(
+                  'Pictures: JPEG, PNG or WebP up to 5 MB. Documents: PDF, Word, Excel, CSV or text up to 8 MB.',
+                  'الصور: JPEG أو PNG أو WebP حتى 5 ميجابايت. المستندات: PDF أو Word أو Excel أو CSV أو نص حتى 8 ميجابايت.',
+                )}
+              </span>
+            </div>
+
+            {libraryUploadError && (
+              <p role="alert" data-error="upload" className="text-xs text-rose-700 font-semibold">
+                {libraryUploadError}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search
+                className="w-4 h-4 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3 text-[#B49AA6]"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={fileSearch}
+                onChange={(event) => {
+                  setFileSearch(event.target.value);
+                  setFilePage(1);
+                }}
+                placeholder={tr('Search by file name', 'ابحث باسم الملف')}
+                aria-label={tr('Search files', 'البحث في الملفات')}
+                className={`${INPUT_CLASS} pl-9 rtl:pl-3 rtl:pr-9`}
+              />
+            </div>
+            <select
+              value={fileKind}
+              onChange={(event) => {
+                setFileKind(event.target.value as 'all' | 'image' | 'document');
+                setFilePage(1);
+              }}
+              aria-label={tr('Kind', 'النوع')}
+              className={`${SELECT_CLASS} sm:w-48`}
+            >
+              <option value="all">{tr('Everything', 'كل الملفات')}</option>
+              <option value="image">{tr('Pictures', 'الصور')}</option>
+              <option value="document">{tr('Documents', 'المستندات')}</option>
+            </select>
+          </div>
+
+          {filesError && (
+            <div role="alert" className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+                <span>{filesError}</span>
+              </span>
+              <button
+                onClick={() => void loadFiles(fileKind, fileSearch, filePage)}
+                className="px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-bold flex items-center gap-1.5 hover:bg-rose-100"
+              >
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                {tr('Retry', 'إعادة المحاولة')}
+              </button>
+            </div>
+          )}
+
+          {filesLoading ? (
+            <div className="bg-white rounded-3xl border border-[#E8D6D1] p-10 text-center text-xs text-[#8B6E7E]">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" aria-hidden="true" />
+              {tr('Loading files...', 'جارٍ تحميل الملفات...')}
+            </div>
+          ) : files.length === 0 ? (
+            <div
+              className="bg-white rounded-3xl border border-[#E8D6D1] p-10 text-center text-xs text-[#8B6E7E] space-y-1"
+              data-empty="files"
+            >
+              <p className="font-bold text-[#2D1E2F]">{tr('Nothing uploaded yet.', 'لم يتم رفع أي ملف بعد.')}</p>
+              <p>{tr('Upload a picture or a document above.', 'ارفع صورة أو مستنداً من الأعلى.')}</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-[#E8D6D1] overflow-hidden">
+              <ul className="divide-y divide-[#F0E3DF]">
+                {files.map((file) => (
+                  <li key={file.id} data-file={file.id} className="p-4 flex flex-wrap items-center gap-3 text-xs">
+                    {file.kind === 'image' ? (
+                      <img
+                        src={fileUrl(file.url)}
+                        alt=""
+                        loading="lazy"
+                        className="w-11 h-11 object-cover rounded-xl border border-[#E8D6D1] shrink-0"
+                      />
+                    ) : (
+                      <span className="w-11 h-11 rounded-xl border border-dashed border-[#E8D6D1] bg-[#FAF7F5] flex items-center justify-center text-[#B49AA6] shrink-0">
+                        <FileText className="w-5 h-5" aria-hidden="true" />
+                      </span>
+                    )}
+                    <div className="flex-1 min-w-[12rem] space-y-0.5">
+                      <p className="font-bold text-[#2D1E2F] break-all">{file.fileName}</p>
+                      <p className="text-[#8B6E7E]">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full font-bold ${
+                            file.kind === 'image' ? 'bg-[#F7E7E3] text-[#8B263E]' : 'bg-stone-200 text-stone-700'
+                          }`}
+                          data-kind={file.kind}
+                        >
+                          {file.kind === 'image' ? tr('Picture', 'صورة') : tr('Document', 'مستند')}
+                        </span>
+                        <span className="mx-2">{formatFileSize(file.sizeBytes, language)}</span>
+                        <span>{new Date(file.uploadedAtUtc).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyAddress(file)}
+                        data-copy-address={file.id}
+                        className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4]"
+                      >
+                        {copiedFileId === file.id ? tr('Copied', 'تم النسخ') : tr('Copy address', 'نسخ العنوان')}
+                      </button>
+                      <a
+                        href={fileUrl(file.url)}
+                        download={file.fileName}
+                        className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4]"
+                      >
+                        {tr('Download', 'تنزيل')}
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {filesTotal > FILES_PAGE_SIZE && (
+            <div className="flex items-center justify-center gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setFilePage((page) => Math.max(1, page - 1))}
+                disabled={filePage <= 1 || filesLoading}
+                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
+              >
+                {tr('Previous', 'السابق')}
+              </button>
+              <span className="text-[#8B6E7E]">
+                {filePage} / {Math.ceil(filesTotal / FILES_PAGE_SIZE)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFilePage((page) => Math.min(Math.ceil(filesTotal / FILES_PAGE_SIZE), page + 1))}
+                disabled={filePage >= Math.ceil(filesTotal / FILES_PAGE_SIZE) || filesLoading}
+                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
+              >
+                {tr('Next', 'التالي')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Create / Edit Product Modal */}
       {productDraft && (
         <AdminModal
@@ -2413,15 +3368,15 @@ export const AdminPage: React.FC = () => {
                 {brands.length > 0 ? (
                   <select
                     required
-                    value={productDraft.brand}
-                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, brand: event.target.value }))}
+                    value={productDraft.brandId}
+                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, brandId: event.target.value }))}
                     className={SELECT_CLASS}
                   >
-                    {productDraft.brand && !brands.some((brand) => brand.name === productDraft.brand) && (
-                      <option value={productDraft.brand}>{productDraft.brand}</option>
+                    {productDraft.brandId && !brands.some((brand) => brand.id === productDraft.brandId) && (
+                      <option value={productDraft.brandId}>{productDraft.brandId}</option>
                     )}
                     {brands.map((brand) => (
-                      <option key={brand.id} value={brand.name}>
+                      <option key={brand.id} value={brand.id}>
                         {brand.name}
                       </option>
                     ))}
@@ -2430,8 +3385,8 @@ export const AdminPage: React.FC = () => {
                   <input
                     type="text"
                     required
-                    value={productDraft.brand}
-                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, brand: event.target.value }))}
+                    value={productDraft.brandId}
+                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, brandId: event.target.value }))}
                     className={INPUT_CLASS}
                   />
                 )}
@@ -2441,12 +3396,12 @@ export const AdminPage: React.FC = () => {
                 {categories.length > 0 ? (
                   <select
                     required
-                    value={productDraft.category}
-                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, category: event.target.value }))}
+                    value={productDraft.categoryId}
+                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, categoryId: event.target.value }))}
                     className={SELECT_CLASS}
                   >
-                    {productDraft.category && !categories.some((category) => category.id === productDraft.category) && (
-                      <option value={productDraft.category}>{productDraft.category}</option>
+                    {productDraft.categoryId && !categories.some((category) => category.id === productDraft.categoryId) && (
+                      <option value={productDraft.categoryId}>{productDraft.categoryId}</option>
                     )}
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
@@ -2458,8 +3413,8 @@ export const AdminPage: React.FC = () => {
                   <input
                     type="text"
                     required
-                    value={productDraft.category}
-                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, category: event.target.value }))}
+                    value={productDraft.categoryId}
+                    onChange={(event) => patchProductDraft((draft) => ({ ...draft, categoryId: event.target.value }))}
                     className={INPUT_CLASS}
                   />
                 )}
@@ -2525,6 +3480,40 @@ export const AdminPage: React.FC = () => {
                 'يُعرض التقييم وعدد المراجعات للعملاء كما تُدخلهما. تبدأ المنتجات الجديدة من 0 — لا يوجد نظام مراجعات خلف هذه الأرقام.',
               )}
             </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Field label={tr('SKU', 'كود SKU')}>
+                <input
+                  type="text"
+                  value={productDraft.variants[0]?.sku ?? ''}
+                  onChange={(event) => updateVariant(0, { sku: event.target.value })}
+                  aria-label="SKU 1"
+                  aria-invalid={skuError ? true : undefined}
+                  dir="ltr"
+                  placeholder={tr('Generated if left empty', 'يُنشأ تلقائياً إذا تُرك فارغاً')}
+                  className={`w-full bg-[#FAF7F5] border rounded-xl p-2.5 font-mono ${
+                    skuError ? 'border-rose-400' : 'border-[#E8D6D1]'
+                  }`}
+                />
+              </Field>
+              <Field label={tr('Stock *', 'المخزون *')}>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={productDraft.variants[0]?.stock ?? '0'}
+                  onChange={(event) => updateVariant(0, { stock: event.target.value })}
+                  aria-label={tr('Stock', 'المخزون')}
+                  className={INPUT_CLASS}
+                />
+              </Field>
+            </div>
+            {skuError && (
+              <p role="alert" data-error="sku" className="text-rose-700 font-semibold -mt-3">
+                {skuError}
+              </p>
+            )}
 
             <BilingualText
               label={tr('Description', 'الوصف')}
@@ -2737,208 +3726,6 @@ export const AdminPage: React.FC = () => {
               </Field>
             </div>
 
-            {/* Variants */}
-            <div className="space-y-2" data-section="variants">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <span className="font-bold">{tr('Variants & shades', 'الدرجات والخيارات')}</span>
-                  <p className="text-[10px] text-[#8B6E7E]">
-                    {tr(
-                      'Existing variant stock is read-only — use the Inventory tab. Deactivate instead of removing.',
-                      'مخزون الدرجات الحالية للقراءة فقط — استخدم تبويب المخزون. عطّل الدرجة بدلاً من حذفها.',
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    patchProductDraft((draft) => ({
-                      ...draft,
-                      variants: [...draft.variants, createVariantDraft(draft.price)],
-                    }))
-                  }
-                  className="px-3 py-2 border border-[#E8D6D1] rounded-xl font-bold text-[#503E48] hover:bg-[#FAF7F5] transition flex items-center gap-1.5 shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                  {tr('Add variant', 'إضافة درجة')}
-                </button>
-              </div>
-
-              <div className="overflow-x-auto border border-[#E8D6D1] rounded-xl">
-                <table className="w-full text-[11px] min-w-[860px]">
-                  <thead>
-                    <tr className="bg-[#FAF7F5] text-[#8B6E7E] uppercase text-[10px]">
-                      <th className="py-2 px-2 text-start">SKU *</th>
-                      <th className="py-2 px-2 text-start">{tr('Shade (EN)', 'الدرجة (EN)')}</th>
-                      <th className="py-2 px-2 text-start">{tr('Shade (AR)', 'الدرجة (AR)')}</th>
-                      <th className="py-2 px-2 text-start">{tr('Shade colour', 'لون الدرجة')}</th>
-                      <th className="py-2 px-2 text-start">{tr('Size', 'الحجم')}</th>
-                      <th className="py-2 px-2 text-start">{tr('Price *', 'السعر *')}</th>
-                      <th className="py-2 px-2 text-start">{tr('Stock', 'المخزون')}</th>
-                      <th className="py-2 px-2 text-center">{tr('Active', 'مفعّل')}</th>
-                      <th className="py-2 px-2">
-                        <span className="sr-only">{tr('Actions', 'إجراءات')}</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0E3DF]">
-                    {productDraft.variants.map((variant, index) => {
-                      const rowNo = index + 1;
-                      return (
-                        <tr key={variant.id ?? `new-${index}`} data-variant-row={rowNo}>
-                          <td className="py-2 px-2">
-                            <input
-                              type="text"
-                              required
-                              value={variant.sku}
-                              onChange={(event) => updateVariant(index, { sku: event.target.value })}
-                              aria-label={`SKU ${rowNo}`}
-                              aria-invalid={skuError ? true : undefined}
-                              dir="ltr"
-                              className={`w-32 bg-white border rounded-lg p-1.5 font-mono ${
-                                skuError ? 'border-rose-400' : 'border-[#E8D6D1]'
-                              }`}
-                            />
-                          </td>
-                          <td className="py-2 px-2">
-                            <input
-                              type="text"
-                              value={variant.shadeEn}
-                              onChange={(event) => updateVariant(index, { shadeEn: event.target.value })}
-                              aria-label={`${tr('Shade (EN)', 'الدرجة (EN)')} ${rowNo}`}
-                              className="w-28 bg-white border border-[#E8D6D1] rounded-lg p-1.5"
-                            />
-                          </td>
-                          <td className="py-2 px-2">
-                            <input
-                              type="text"
-                              dir="rtl"
-                              value={variant.shadeAr}
-                              onChange={(event) => updateVariant(index, { shadeAr: event.target.value })}
-                              aria-label={`${tr('Shade (AR)', 'الدرجة (AR)')} ${rowNo}`}
-                              className="w-28 bg-white border border-[#E8D6D1] rounded-lg p-1.5"
-                            />
-                          </td>
-                          <td className="py-2 px-2">
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="color"
-                                value={/^#[0-9a-fA-F]{6}$/.test(variant.shadeHex) ? variant.shadeHex : '#BD6B73'}
-                                onChange={(event) => updateVariant(index, { shadeHex: event.target.value.toUpperCase() })}
-                                className="w-7 h-7 rounded border border-[#E8D6D1] bg-white"
-                                aria-label={`${tr('Pick shade colour', 'اختر لون الدرجة')} ${rowNo}`}
-                                title={tr('Pick shade colour', 'اختر لون الدرجة')}
-                              />
-                              <input
-                                type="text"
-                                value={variant.shadeHex}
-                                onChange={(event) => updateVariant(index, { shadeHex: event.target.value })}
-                                aria-label={`${tr('Shade hex', 'كود اللون')} ${rowNo}`}
-                                placeholder="#BD6B73"
-                                dir="ltr"
-                                className="w-20 bg-white border border-[#E8D6D1] rounded-lg p-1.5 font-mono"
-                              />
-                            </div>
-                          </td>
-                          <td className="py-2 px-2">
-                            <input
-                              type="text"
-                              value={variant.size}
-                              onChange={(event) => updateVariant(index, { size: event.target.value })}
-                              aria-label={`${tr('Size', 'الحجم')} ${rowNo}`}
-                              className="w-20 bg-white border border-[#E8D6D1] rounded-lg p-1.5"
-                            />
-                          </td>
-                          <td className="py-2 px-2">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              required
-                              value={variant.price}
-                              onChange={(event) => updateVariant(index, { price: event.target.value })}
-                              aria-label={`${tr('Price', 'السعر')} ${rowNo}`}
-                              className="w-20 bg-white border border-[#E8D6D1] rounded-lg p-1.5 font-bold"
-                            />
-                          </td>
-                          <td className="py-2 px-2">
-                            {variant.id ? (
-                              <div>
-                                <input
-                                  type="number"
-                                  value={variant.stock}
-                                  readOnly
-                                  aria-label={`${tr('Current stock (read-only)', 'المخزون الحالي (للقراءة فقط)')} ${rowNo}`}
-                                  className="w-20 bg-[#F3E7E4] border border-[#E8D6D1] rounded-lg p-1.5 font-bold text-[#503E48] cursor-not-allowed"
-                                />
-                                <span className="block text-[9px] text-[#8B6E7E]">
-                                  {tr('Use Inventory tab', 'استخدم تبويب المخزون')}
-                                </span>
-                              </div>
-                            ) : (
-                              <input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={variant.stock}
-                                onChange={(event) => updateVariant(index, { stock: event.target.value })}
-                                aria-label={`${tr('Initial stock', 'المخزون الابتدائي')} ${rowNo}`}
-                                className="w-20 bg-white border border-[#E8D6D1] rounded-lg p-1.5"
-                                title={tr('Initial stock for a new variant', 'المخزون الابتدائي للدرجة الجديدة')}
-                              />
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={variant.isActive}
-                              onChange={(event) => updateVariant(index, { isActive: event.target.checked })}
-                              className="w-4 h-4 accent-[#8B263E]"
-                              aria-label={`${tr('Active', 'مفعّل')} ${rowNo}`}
-                              title={tr(
-                                'Inactive variants are kept but hidden from shoppers',
-                                'الدرجات غير المفعّلة تُحفظ ولكن لا تظهر للعملاء',
-                              )}
-                            />
-                          </td>
-                          <td className="py-2 px-2">
-                            {variant.id ? (
-                              <span
-                                className="text-[10px] text-[#B49AA6]"
-                                title={tr('Existing variants are never deleted', 'لا يتم حذف الدرجات الحالية')}
-                              >
-                                —
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  patchProductDraft((draft) => ({
-                                    ...draft,
-                                    variants: draft.variants.filter((_, variantIndex) => variantIndex !== index),
-                                  }))
-                                }
-                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50"
-                                aria-label={`${tr('Remove new variant', 'إزالة الدرجة الجديدة')} ${rowNo}`}
-                                title={tr('Remove new variant', 'إزالة الدرجة الجديدة')}
-                              >
-                                <X className="w-3.5 h-3.5" aria-hidden="true" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {skuError && (
-                <p role="alert" data-error="sku" className="text-rose-700 font-semibold">
-                  {skuError}
-                </p>
-              )}
-            </div>
-
             <div className="flex justify-end gap-3 pt-3 border-t border-[#E8D6D1]">
               <button
                 type="button"
@@ -2954,6 +3741,322 @@ export const AdminPage: React.FC = () => {
               >
                 {productSaving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
                 {tr('Save Product', 'حفظ المنتج')}
+              </button>
+            </div>
+          </form>
+        </AdminModal>
+      )}
+
+      {/* Create / Edit Brand Modal */}
+      {brandDraft && (
+        <AdminModal
+          title={brandDraft.id ? tr('Edit brand', 'تعديل الماركة') : tr('New brand', 'ماركة جديدة')}
+          closeLabel={tr('Close', 'إغلاق')}
+          onClose={() => setBrandDraft(null)}
+          widthClass="max-w-xl"
+        >
+          <form onSubmit={(event) => void handleSaveBrand(event)} className="space-y-4 text-xs" data-form="brand">
+            {brandFormError && (
+              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>{brandFormError}</span>
+              </div>
+            )}
+
+            <Field label={tr('Brand name *', 'اسم الماركة *')}>
+              <input
+                type="text"
+                required
+                maxLength={200}
+                value={brandDraft.name}
+                onChange={(event) => setBrandDraft((current) => (current ? { ...current, name: event.target.value } : current))}
+                placeholder={tr('e.g. Luma Signature', 'مثال: لوما سيغنتشر')}
+                className={INPUT_CLASS}
+              />
+            </Field>
+
+            <Field label={tr('Origin', 'الأصل')}>
+              <input
+                type="text"
+                maxLength={120}
+                value={brandDraft.origin}
+                onChange={(event) => setBrandDraft((current) => (current ? { ...current, origin: event.target.value } : current))}
+                placeholder={tr('e.g. France', 'مثال: فرنسا')}
+                className={INPUT_CLASS}
+              />
+            </Field>
+
+            <Field label={tr('Logo URL', 'رابط الشعار')}>
+              <input
+                type="text"
+                inputMode="url"
+                dir="ltr"
+                value={brandDraft.logoUrl}
+                onChange={(event) => setBrandDraft((current) => (current ? { ...current, logoUrl: event.target.value } : current))}
+                placeholder="https://..."
+                className={INPUT_CLASS}
+              />
+              <span className="block text-[10px] text-[#8B6E7E] mt-1">
+                {tr('Leave empty for a brand without a logo.', 'اتركه فارغاً لماركة بدون شعار.')}
+              </span>
+            </Field>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {brandDraft.logoUrl.trim().length > 0 && (
+                <img
+                  src={mediaUrl(brandDraft.logoUrl.trim())}
+                  alt={tr('Logo preview', 'معاينة الشعار')}
+                  className="w-12 h-12 object-cover rounded-xl border border-[#E8D6D1] shrink-0"
+                />
+              )}
+              <label className="px-3 py-2 bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl font-bold text-[#3B2332] hover:bg-[#F3E7E4] transition flex items-center gap-1.5 cursor-pointer focus-within:ring-2 focus-within:ring-[#8B263E]">
+                {uploadingImage ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                <span>{uploadingImage ? tr('Uploading...', 'جارٍ الرفع...') : tr('Upload logo', 'رفع الشعار')}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  data-upload="brand"
+                  disabled={uploadingImage}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file) {
+                      void handleUploadImage(file, 'brand');
+                    }
+                  }}
+                />
+              </label>
+              <span className="text-[10px] text-[#8B6E7E]">{tr('JPEG, PNG or WebP, up to 5 MB.', 'JPEG أو PNG أو WebP حتى 5 ميجابايت.')}</span>
+            </div>
+            {uploadError?.target === 'brand' && (
+              <p role="alert" data-error="brand-upload" className="text-rose-700 font-semibold">
+                {uploadError.message}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-[#E8D6D1]">
+              <button
+                type="button"
+                onClick={() => setBrandDraft(null)}
+                className="px-5 py-2.5 border border-[#E8D6D1] rounded-xl font-bold"
+              >
+                {tr('Cancel', 'إلغاء')}
+              </button>
+              <button
+                type="submit"
+                disabled={brandSaving}
+                className="px-6 py-2.5 bg-[#3B2332] text-white rounded-xl font-bold hover:bg-[#523347] transition flex items-center gap-2 disabled:opacity-60"
+              >
+                {brandSaving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+                {brandDraft.id ? tr('Save brand', 'حفظ الماركة') : tr('Create brand', 'إنشاء الماركة')}
+              </button>
+            </div>
+          </form>
+        </AdminModal>
+      )}
+
+      {/* Inventory Adjustment Modal */}
+      {inventoryAdjustOpen && inventoryProduct && (
+        <AdminModal
+          title={tr('Adjust stock', 'تعديل المخزون')}
+          closeLabel={tr('Close', 'إغلاق')}
+          onClose={() => setInventoryAdjustOpen(false)}
+          widthClass="max-w-2xl"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleAdjustInventory();
+            }}
+            className="space-y-4 text-xs"
+            data-form="inventory"
+          >
+            <div className="bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-3">
+              <p className="font-bold text-[#2D1E2F]">{l(inventoryProduct.name)}</p>
+              <p className="text-[11px] text-[#8B6E7E]">
+                {brandLabel(inventoryProduct.brandId)} • {categoryLabel(inventoryProduct.categoryId)} •{' '}
+                {inventoryProduct.status === 'published' ? tr('Active', 'نشط') : tr('Inactive', 'غير نشط')}
+              </p>
+            </div>
+
+            <Field label={tr('Variant', 'الدرجة')}>
+              <select
+                value={inventoryVariantId}
+                onChange={(event) => {
+                  const nextId = event.target.value;
+                  setInventoryVariantId(nextId);
+                  setInventoryNewStock(
+                    String(inventoryProduct.variants.find((variant) => variant.id === nextId)?.stock ?? 0),
+                  );
+                }}
+                disabled={inventoryProduct.variants.length === 0}
+                className={SELECT_CLASS}
+              >
+                {inventoryProduct.variants.length === 0 && (
+                  <option value="">{tr('No variants', 'لا توجد درجات')}</option>
+                )}
+                {inventoryProduct.variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.sku} —{' '}
+                    {variant.shadeName ? l(variant.shadeName) : variant.size ?? tr('Standard', 'افتراضي')} (
+                    {variant.stock})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div
+              className="bg-[#FAF7F5] border border-[#E8D6D1] rounded-xl p-3"
+              data-field="current-stock"
+              data-stock-state={stockState ?? undefined}
+            >
+              <span className="block text-[10px] font-bold uppercase text-[#8B6E7E]">
+                {tr('Current stock', 'المخزون الحالي')}
+              </span>
+              <p className="font-serif text-2xl font-bold text-[#2D1E2F]">
+                {inventoryVariant ? `${inventoryVariant.stock} ${tr('units', 'وحدة')}` : '—'}
+              </p>
+              {stockState && (
+                <span
+                  className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    stockState === 'out'
+                      ? 'bg-rose-100 text-rose-800'
+                      : stockState === 'low'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {stockState === 'out'
+                    ? tr('Out of stock', 'نفد المخزون')
+                    : stockState === 'low'
+                      ? tr('Low stock (1–5)', 'مخزون منخفض (1–5)')
+                      : tr('In stock', 'متوفر')}
+                </span>
+              )}
+              {inventoryVariant && inventoryVariant.isActive === false && (
+                <span className="block text-[10px] font-bold text-stone-600 mt-1">
+                  {tr('Inactive variant', 'درجة غير مفعّلة')}
+                </span>
+              )}
+            </div>
+
+            <fieldset className="space-y-1">
+              <legend className="block font-bold mb-1">{tr('Adjustment type', 'نوع التعديل')}</legend>
+              <label className="flex items-center gap-2 font-semibold cursor-pointer">
+                <input
+                  type="radio"
+                  name="inventory-mode"
+                  value="delta"
+                  checked={inventoryMode === 'delta'}
+                  onChange={() => setInventoryMode('delta')}
+                  className="accent-[#8B263E]"
+                />
+                <span>{tr('Add / remove units (+/−)', 'إضافة / خصم وحدات (+/−)')}</span>
+              </label>
+              <label
+                className={`flex items-center gap-2 font-semibold ${canSetExact ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                title={
+                  canSetExact
+                    ? undefined
+                    : tr(
+                        'Exact-count mode needs the variant row version from the server, which is not available for this variant.',
+                        'يحتاج وضع العدد الدقيق إلى إصدار صف الدرجة من الخادم وهو غير متاح لهذه الدرجة.',
+                      )
+                }
+              >
+                <input
+                  type="radio"
+                  name="inventory-mode"
+                  value="absolute"
+                  checked={inventoryMode === 'absolute'}
+                  disabled={!canSetExact}
+                  onChange={() => setInventoryMode('absolute')}
+                  className="accent-[#8B263E]"
+                />
+                <span>{tr('Set exact count (stock count correction)', 'تحديد العدد الدقيق (تصحيح الجرد)')}</span>
+              </label>
+              {!canSetExact && (
+                <p className="text-[10px] text-[#8B6E7E]" data-field="exact-unavailable">
+                  {tr(
+                    'Exact-count mode is unavailable: the server did not provide a row version for this variant, so a stale count could not be detected.',
+                    'وضع العدد الدقيق غير متاح: لم يوفّر الخادم إصدار الصف لهذه الدرجة، لذا لا يمكن اكتشاف عدّ قديم.',
+                  )}
+                </p>
+              )}
+            </fieldset>
+
+            {inventoryMode === 'delta' ? (
+              <Field label={tr('Adjustment (+/−)', 'التعديل (+/−)')}>
+                <input
+                  type="number"
+                  step="1"
+                  value={inventoryDelta}
+                  onChange={(event) => setInventoryDelta(event.target.value)}
+                  className={INPUT_CLASS}
+                />
+                <span className="block text-[10px] text-[#8B6E7E] mt-1">
+                  {tr('Use a negative number to remove units.', 'استخدم رقماً سالباً لخفض الكمية.')}
+                </span>
+              </Field>
+            ) : (
+              <Field label={tr('New stock count', 'العدد الجديد للمخزون')}>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={inventoryNewStock}
+                  onChange={(event) => setInventoryNewStock(event.target.value)}
+                  className={INPUT_CLASS}
+                />
+                <span className="block text-[10px] text-[#8B6E7E] mt-1">
+                  {tr(
+                    'Rejected if the stock changed since this page loaded.',
+                    'يُرفض التعديل إذا تغيّر المخزون منذ تحميل هذه الصفحة.',
+                  )}
+                </span>
+              </Field>
+            )}
+
+            <Field label={tr('Reason *', 'السبب *')}>
+              <input
+                type="text"
+                value={inventoryReason}
+                onChange={(event) => setInventoryReason(event.target.value)}
+                placeholder={tr('e.g. Stock count correction', 'مثال: تصحيح جرد المخزون')}
+                className={INPUT_CLASS}
+              />
+            </Field>
+
+            {inventoryError && (
+              <p
+                role="alert"
+                data-error="inventory"
+                className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold"
+              >
+                {inventoryError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-[#E8D6D1]">
+              <button
+                type="button"
+                onClick={() => setInventoryAdjustOpen(false)}
+                className="px-5 py-2.5 border border-[#E8D6D1] rounded-xl font-bold"
+              >
+                {tr('Cancel', 'إلغاء')}
+              </button>
+              <button
+                type="submit"
+                disabled={inventorySaving || !inventoryProduct || !inventoryVariant}
+                className="px-5 py-2.5 bg-[#3B2332] text-white rounded-xl font-bold hover:bg-[#523347] transition flex items-center gap-2 disabled:opacity-50"
+              >
+                {inventorySaving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+                {tr('Apply adjustment', 'تطبيق التعديل')}
               </button>
             </div>
           </form>

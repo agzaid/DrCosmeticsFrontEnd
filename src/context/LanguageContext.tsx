@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Language, LocalizedString } from '../types';
+import { LANGUAGE_STORAGE_KEY, readStoredLanguage } from '../utils/language';
 
 interface LanguageContextType {
   language: Language;
@@ -25,8 +26,6 @@ const translations: Record<Language, Record<string, string>> = {
     
     // Currency & Pricing
     'currency.code': 'EGP',
-    'shipping.freeOver': 'Free shipping on Egypt orders over 600 EGP',
-    'shipping.standardFee': '50 EGP delivery fee',
     'shipping.free': 'FREE',
     
     // Service notice
@@ -142,10 +141,13 @@ const translations: Record<Language, Record<string, string>> = {
     'admin.title': 'Luma Beauty Store Admin',
     'admin.tabOverview': 'Overview',
     'admin.tabProducts': 'Products & Variants',
+    'admin.tabBrands': 'Brands',
     'admin.tabOrders': 'Orders & Logistics',
     'admin.tabInventory': 'Inventory Stock',
+    'admin.tabDelivery': 'Delivery Fees',
     'admin.tabDiscounts': 'Discount Coupons',
     'admin.tabBanners': 'Homepage Banners',
+    'admin.tabFiles': 'Files & Documents',
     'admin.addProduct': 'Add New Product',
     'admin.editProduct': 'Edit Product',
 
@@ -165,7 +167,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.search': 'Search products',
     'nav.clearSearch': 'Clear search',
     'nav.matching': 'Matching Products',
-    'nav.viewAllResults': 'View all results for "{query}" →',
+    'nav.viewAllResults': 'View all results ({count})',
     'nav.noResults': 'No beauty products found matching "{query}"',
     'nav.accountMenu': 'Account menu',
     'nav.signedInAs': 'Signed in as',
@@ -218,6 +220,7 @@ const translations: Record<Language, Record<string, string>> = {
     'product.wishlistToggle': 'Add or remove from wishlist',
     'product.wishlistNamed': 'Wishlist {name}',
     'product.sale': 'SALE',
+    'product.salePercent': 'Sale {percent}%',
     'wishlist.count': '{count} items saved in your favorites list',
     'wishlist.emptyTitle': 'Your wishlist is empty',
     'wishlist.emptyBody': 'Click the heart icon on any makeup, skincare, or fragrance product while browsing to save it for later.',
@@ -266,6 +269,7 @@ const translations: Record<Language, Record<string, string>> = {
     'order.status.Pending': 'Pending',
     'order.status.Confirmed': 'Confirmed',
     'order.status.Shipped': 'Shipped',
+    'order.status.OutForDelivery': 'Out for delivery',
     'order.status.Delivered': 'Delivered',
     'order.status.Cancelled': 'Cancelled',
     'order.latestUpdate': 'Latest update:',
@@ -285,6 +289,25 @@ const translations: Record<Language, Record<string, string>> = {
     'account.error.passwordShort': 'Password must be at least 8 characters',
     'account.error.loginFailed': 'Could not sign in',
     'account.error.registerFailed': 'Could not create the account',
+    'account.error.passwordMismatch': 'The two passwords do not match',
+    'account.error.resetFailed': 'Could not update the password',
+    'account.error.forgotFailed': 'Could not send the reset link',
+    'account.showPassword': 'Show password',
+    'account.hidePassword': 'Hide password',
+    'account.forgotPassword': 'Forgot your password?',
+    'account.forgot.title': 'Reset your password',
+    'account.forgot.subtitle': "Enter your email and we'll send you a link to choose a new password.",
+    'account.forgot.submit': 'Send reset link',
+    'account.forgot.sentTitle': 'Check your email',
+    'account.forgot.sentBody': 'If an account exists for this address, a reset link is on its way. It can take a minute to arrive; check your spam folder too.',
+    'account.forgot.back': 'Back to sign in',
+    'account.reset.title': 'Choose a new password',
+    'account.reset.subtitle': 'Enter a new password for your account.',
+    'account.reset.newPassword': 'New password',
+    'account.reset.confirmPassword': 'Confirm new password',
+    'account.reset.submit': 'Update password',
+    'account.reset.success': 'Your password has been updated. Please sign in.',
+    'account.reset.requestNew': 'Request a new link',
     'account.defaultLabel': 'Home',
     'account.labelRequired': 'Please name this address',
     'account.addressSaved': 'Address saved successfully!',
@@ -345,8 +368,6 @@ const translations: Record<Language, Record<string, string>> = {
     
     // Currency & Pricing
     'currency.code': 'ج.م',
-    'shipping.freeOver': 'شحن مجاني لجميع محافظات مصر للطلبات فوق 600 ج.م',
-    'shipping.standardFee': '50 ج.م مصاريف الشحن',
     'shipping.free': 'مجاناً',
     
     // Service notice
@@ -462,10 +483,13 @@ const translations: Record<Language, Record<string, string>> = {
     'admin.title': 'لوحة تحكم متجر لوما بيوتي',
     'admin.tabOverview': 'نظرة عامة',
     'admin.tabProducts': 'المنتجات والدرجات',
+    'admin.tabBrands': 'الماركات',
     'admin.tabOrders': 'الطلبات والشحن',
     'admin.tabInventory': 'المخزون والكميات',
+    'admin.tabDelivery': 'رسوم التوصيل',
     'admin.tabDiscounts': 'أكواد الخصم',
     'admin.tabBanners': 'بنرات الصفحة الرئيسية',
+    'admin.tabFiles': 'الملفات والمستندات',
     'admin.addProduct': 'إضافة منتج جديد',
     'admin.editProduct': 'تعديل المنتج',
 
@@ -485,7 +509,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.search': 'ابحثي في المنتجات',
     'nav.clearSearch': 'مسح البحث',
     'nav.matching': 'منتجات مطابقة',
-    'nav.viewAllResults': 'عرض كل النتائج عن "{query}" ←',
+    'nav.viewAllResults': 'عرض كل النتائج ({count})',
     'nav.noResults': 'لا توجد منتجات تجميل مطابقة لـ "{query}"',
     'nav.accountMenu': 'قائمة الحساب',
     'nav.signedInAs': 'تم تسجيل الدخول باسم',
@@ -538,6 +562,7 @@ const translations: Record<Language, Record<string, string>> = {
     'product.wishlistToggle': 'إضافة أو إزالة من المفضلة',
     'product.wishlistNamed': 'المفضلة {name}',
     'product.sale': 'تخفيض',
+    'product.salePercent': 'تخفيض {percent}%',
     'wishlist.count': '{count} منتج محفوظ في المفضلة',
     'wishlist.emptyTitle': 'قائمة المفضلة فارغة',
     'wishlist.emptyBody': 'اضغطي على أيقونة القلب في أي منتج مكياج أو عناية أو عطور لحفظه لوقت لاحق.',
@@ -586,6 +611,7 @@ const translations: Record<Language, Record<string, string>> = {
     'order.status.Pending': 'قيد الانتظار',
     'order.status.Confirmed': 'تم التأكيد',
     'order.status.Shipped': 'تم الشحن',
+    'order.status.OutForDelivery': 'خرج للتوصيل',
     'order.status.Delivered': 'تم التسليم',
     'order.status.Cancelled': 'ملغي',
     'order.latestUpdate': 'آخر تحديث:',
@@ -605,6 +631,25 @@ const translations: Record<Language, Record<string, string>> = {
     'account.error.passwordShort': 'يجب ألا تقل كلمة المرور عن 8 أحرف',
     'account.error.loginFailed': 'تعذر تسجيل الدخول',
     'account.error.registerFailed': 'تعذر إنشاء الحساب',
+    'account.error.passwordMismatch': 'كلمتا المرور غير متطابقتين',
+    'account.error.resetFailed': 'تعذر تحديث كلمة المرور',
+    'account.error.forgotFailed': 'تعذر إرسال رابط إعادة التعيين',
+    'account.showPassword': 'إظهار كلمة المرور',
+    'account.hidePassword': 'إخفاء كلمة المرور',
+    'account.forgotPassword': 'نسيت كلمة المرور؟',
+    'account.forgot.title': 'إعادة تعيين كلمة المرور',
+    'account.forgot.subtitle': 'أدخلي بريدك الإلكتروني وسنرسل لك رابطاً لاختيار كلمة مرور جديدة.',
+    'account.forgot.submit': 'إرسال رابط إعادة التعيين',
+    'account.forgot.sentTitle': 'تحققي من بريدك الإلكتروني',
+    'account.forgot.sentBody': 'إذا كان هناك حساب مرتبط بهذا البريد، فقد أرسلنا إليه رابط إعادة التعيين. قد يستغرق وصوله دقيقة، وتفقدي مجلد الرسائل غير المرغوب فيها أيضاً.',
+    'account.forgot.back': 'العودة إلى تسجيل الدخول',
+    'account.reset.title': 'اختيار كلمة مرور جديدة',
+    'account.reset.subtitle': 'أدخلي كلمة المرور الجديدة لحسابك.',
+    'account.reset.newPassword': 'كلمة المرور الجديدة',
+    'account.reset.confirmPassword': 'تأكيد كلمة المرور الجديدة',
+    'account.reset.submit': 'تحديث كلمة المرور',
+    'account.reset.success': 'تم تحديث كلمة المرور. يرجى تسجيل الدخول.',
+    'account.reset.requestNew': 'طلب رابط جديد',
     'account.defaultLabel': 'المنزل',
     'account.labelRequired': 'يرجى إدخال اسم للعنوان',
     'account.addressSaved': 'تم حفظ العنوان بنجاح',
@@ -655,15 +700,12 @@ const translations: Record<Language, Record<string, string>> = {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('luma_language');
-    return saved === 'ar' ? 'ar' : 'en';
-  });
+  const [language, setLanguageState] = useState<Language>(readStoredLanguage);
 
   const direction = language === 'ar' ? 'rtl' : 'ltr';
 
   useEffect(() => {
-    localStorage.setItem('luma_language', language);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     document.documentElement.lang = language;
     document.documentElement.dir = direction;
   }, [language, direction]);

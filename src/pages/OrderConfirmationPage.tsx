@@ -12,11 +12,12 @@ import {
   ArrowLeft,
   Clock
 } from 'lucide-react';
-import type { Order, OrderStatus } from '../types';
+import type { Order } from '../types';
 import { checkoutApi } from '../api/api';
 import { mediaUrl } from '../api/config';
 import { useLanguage } from '../context/LanguageContext';
 import { formatPrice } from '../utils/shopLogic';
+import { OrderProgress } from '../components/orders/OrderProgress';
 
 interface OrderConfirmationPageProps {
   orderId: string | null;
@@ -75,9 +76,6 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
     );
   }
 
-  const statuses: OrderStatus[] = ['Pending', 'Confirmed', 'Shipped', 'Delivered'];
-  const currentStep = statuses.indexOf(order.status);
-
   return (
     <div data-testid="order-confirmation" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       
@@ -121,29 +119,7 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
         </div>
 
         {/* Step progress bar */}
-        <div className="grid grid-cols-4 gap-2 text-center">
-          {statuses.map((st, idx) => {
-            const isCompleted = idx <= currentStep && order.status !== 'Cancelled';
-            const isCurrent = idx === currentStep;
-
-            return (
-              <div key={st} className="flex flex-col items-center space-y-2">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition ${
-                    isCompleted
-                      ? 'bg-[#3B2332] text-white shadow-xs'
-                      : 'bg-[#F3E7E4] text-[#8B6E7E]'
-                  } ${isCurrent ? 'ring-4 ring-[#8B263E]/20' : ''}`}
-                >
-                  {idx + 1}
-                </div>
-                <span className={`text-[11px] font-semibold ${isCompleted ? 'text-[#2D1E2F]' : 'text-stone-400'}`}>
-                  {t(`order.status.${st}`)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <OrderProgress status={order.status} testId="order-progress" />
 
         {order.statusHistory && order.statusHistory.length > 0 && (
           <div className="p-3 bg-[#FAF7F5] rounded-xl text-xs text-[#503E48] space-y-1">

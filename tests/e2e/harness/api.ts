@@ -3,9 +3,11 @@
  * the SPA does (GET /api/v1/auth/csrf -> X-XSRF-TOKEN header). Specs assert persistence through this client only.
  */
 import { randomBytes } from 'node:crypto';
-import type { Order, Product, User, UserAddress } from '../../../src/types';
+import type { BrandItem, CategoryItem, Order, Product, User, UserAddress } from '../../../src/types';
 import type {
   AddressesResponse,
+  BrandsResponse,
+  CategoriesResponse,
   CheckoutQuote,
   DiscountWrite,
   PagedOrders,
@@ -35,6 +37,7 @@ export class ApiClient {
   readonly baseUrl: string;
   private readonly jar = new Map<string, string>();
   private csrf: { token: string; headerName: string } | null = null;
+  private reference: { brands: BrandItem[]; categories: CategoryItem[] } | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
@@ -197,6 +200,42 @@ export class ApiClient {
     return variant.stock;
   }
 
+  /**
+   * Reference data is immutable for the length of a run, so one fetch per client is enough. Fixtures know the
+   * readable identifiers (a brand's name, a category's slug) but a product is written against the opaque keys.
+   */
+  async referenceData(): Promise<{ brands: BrandItem[]; categories: CategoryItem[] }> {
+    if (!this.reference) {
+      const [brands, categories] = await Promise.all([
+        this.get<BrandsResponse>('/api/v1/brands'),
+        this.get<CategoriesResponse>('/api/v1/categories'),
+      ]);
+      if (!brands.ok || !categories.ok) {
+        throw new Error(`GET reference data failed: brands ${brands.status}, categories ${categories.status}`);
+      }
+      this.reference = { brands: brands.data.brands, categories: categories.data.categories };
+    }
+    return this.reference;
+  }
+
+  /** The key of the brand carrying this display name. */
+  async brandKey(name: string): Promise<string> {
+    const match = (await this.referenceData()).brands.find((brand) => brand.name === name);
+    if (!match) {
+      throw new Error(`no brand named ${name}`);
+    }
+    return match.id;
+  }
+
+  /** The key of the category carrying this slug. */
+  async categoryKey(slug: string): Promise<string> {
+    const match = (await this.referenceData()).categories.find((category) => category.slug === slug);
+    if (!match) {
+      throw new Error(`no category with the slug ${slug}`);
+    }
+    return match.id;
+  }
+
   // ---- checkout / orders ------------------------------------------------------------------------------------
 
   async quote(items: { variantId: string; quantity: number }[], discountCode?: string): Promise<CheckoutQuote> {
@@ -238,8 +277,8 @@ export class ApiClient {
     const product = current.data.product;
     const body: ProductWrite = {
       name: product.name,
-      brand: product.brand,
-      category: product.category,
+      brandId: product.brandId,
+      categoryId: product.categoryId,
       subCategory: product.subCategory ?? null,
       description: product.description,
       ingredients: product.ingredients,

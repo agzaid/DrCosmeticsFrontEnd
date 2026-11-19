@@ -1,11 +1,16 @@
 import { ApiError, apiRequest, buildQuery, invalidateCsrfToken } from './httpClient';
 import type {
   AddressesResponse,
+  AdminBrand,
   AuthUserResponse,
   BannersResponse,
+  BrandWrite,
+  BrandsAdminResponse,
   BrandsResponse,
   CartLineInput,
   CategoriesResponse,
+  DeliverySettings,
+  DeliverySettingsWrite,
   DiscountRecord,
   DiscountWrite,
   InventoryAdjustPayload,
@@ -19,12 +24,22 @@ import type {
   ProductWrite,
   QuoteResponse,
   RegisterPayload,
+  ResetPasswordPayload,
   ShippingAddressPayload,
+  StoredFile,
+  StoredFilesPage,
   WishlistResponse,
 } from './types';
-import type { Order, Product, PromotionalBanner, User, UserAddress } from '../types';
+import type { BrandItem, Language, Order, Product, PromotionalBanner, User, UserAddress } from '../types';
 
 const GUEST_MARKER = 'luma_guest_scope';
+
+/** Sends one file to the files API, which stores it in the folder for its kind and records it. */
+function uploadFile(kind: 'images' | 'documents', file: File): Promise<StoredFile> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiRequest<StoredFile>(`/files/${kind}`, { method: 'POST', formData: form });
+}
 let guestSessionReady = false;
 
 export const authApi = {
@@ -63,6 +78,15 @@ export const authApi = {
     invalidateCsrfToken();
     guestSessionReady = false;
   },
+
+  async requestPasswordReset(email: string, language: Language): Promise<void> {
+    await apiRequest<void>('/auth/forgot-password', { method: 'POST', body: { email, language } });
+  },
+
+  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
+    await apiRequest<void>('/auth/reset-password', { method: 'POST', body: payload });
+    invalidateCsrfToken();
+  },
 };
 
 export const catalogApi = {
@@ -96,6 +120,11 @@ export const catalogApi = {
   async banners(signal?: AbortSignal): Promise<PromotionalBanner[]> {
     const data = await apiRequest<BannersResponse>('/banners', { signal });
     return data.banners;
+  },
+
+  async deliverySettings(signal?: AbortSignal): Promise<DeliverySettings> {
+    const data = await apiRequest<{ settings: DeliverySettings }>('/settings/delivery', { signal });
+    return data.settings;
   },
 };
 
@@ -201,6 +230,44 @@ export const adminApi = {
     return data.metrics;
   },
 
+  async brands(): Promise<AdminBrand[]> {
+    const data = await apiRequest<BrandsAdminResponse>('/admin/brands');
+    return data.brands;
+  },
+
+  async deliverySettings(): Promise<DeliverySettings> {
+    const data = await apiRequest<{ settings: DeliverySettings }>('/admin/settings/delivery');
+    return data.settings;
+  },
+
+  async updateDeliverySettings(payload: DeliverySettingsWrite): Promise<DeliverySettings> {
+    const data = await apiRequest<{ settings: DeliverySettings }>('/admin/settings/delivery', {
+      method: 'PUT',
+      body: payload,
+    });
+    return data.settings;
+  },
+
+  async createBrand(payload: BrandWrite): Promise<BrandItem> {
+    const data = await apiRequest<{ brand: BrandItem }>('/admin/brands', { method: 'POST', body: payload });
+    return data.brand;
+  },
+
+  async updateBrand(id: string, payload: BrandWrite): Promise<BrandItem> {
+    const data = await apiRequest<{ brand: BrandItem }>(`/admin/brands/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: payload,
+    });
+    return data.brand;
+  },
+
+  async deleteBrand(id: string): Promise<BrandItem> {
+    const data = await apiRequest<{ brand: BrandItem }>(`/admin/brands/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    return data.brand;
+  },
+
   orders(params: AdminOrderSearchParams = {}): Promise<PagedOrders> {
     return apiRequest<PagedOrders>(`/admin/orders${buildQuery(params as Record<string, unknown>)}`);
   },
@@ -292,10 +359,21 @@ export const adminApi = {
     return data.banners;
   },
 
+  /**
+   * One page of everything that has been uploaded, newest first. It is how a stored picture is found again and the
+   * only way to reach a document, which has no public address.
+   */
+  files(params: { kind?: 'image' | 'document'; search?: string; page?: number; pageSize?: number } = {}): Promise<StoredFilesPage> {
+    return apiRequest<StoredFilesPage>(`/files${buildQuery(params as Record<string, unknown>)}`);
+  },
+
+  /** Stores an image and answers with its public address (/media/...). */
   async uploadImage(file: File): Promise<string> {
-    const form = new FormData();
-    form.append('file', file);
-    const data = await apiRequest<{ url: string }>('/admin/images', { method: 'POST', formData: form });
-    return data.url;
+    return (await uploadFile('images', file)).url;
+  },
+
+  /** Stores a document (PDF, Word, Excel, CSV or text). Its `url` is an API address that needs an administrator. */
+  uploadDocument(file: File): Promise<StoredFile> {
+    return uploadFile('documents', file);
   },
 };

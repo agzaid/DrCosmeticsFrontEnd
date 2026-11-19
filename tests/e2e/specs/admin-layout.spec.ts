@@ -23,7 +23,7 @@ import {
   waitForToast,
 } from './admin-helpers.ts';
 
-const TABS = ['overview', 'products', 'orders', 'inventory', 'discounts', 'banners'] as const;
+const TABS = ['overview', 'products', 'brands', 'orders', 'inventory', 'delivery', 'discounts', 'banners'] as const;
 const VIEWPORTS = [
   { width: 1280, height: 800 },
   { width: 1024, height: 768 },
@@ -101,6 +101,12 @@ async function openDiscountForm(e2e: E2ePage, lang: Lang): Promise<void> {
   await e2e.page.waitForSelector('[role="dialog"] form[data-form="discount"]');
 }
 
+async function openBrandForm(e2e: E2ePage, lang: Lang): Promise<void> {
+  await openTab(e2e, 'brands');
+  await clickText(e2e.page, '[data-panel="brands"] button', pick(lang, 'New brand', 'ماركة جديدة'));
+  await e2e.page.waitForSelector('[role="dialog"] form[data-form="brand"]');
+}
+
 async function focusInsideDialog(e2e: E2ePage): Promise<boolean> {
   return e2e.page.evaluate(() => document.querySelector('[role="dialog"]')?.contains(document.activeElement) ?? false);
 }
@@ -153,7 +159,7 @@ describe('admin layout, keyboard and accessibility', () => {
             await e2e.screenshot(`admin-layout-${lang}-${viewport.width}-${tab}`);
           }
 
-          for (const open of [openProductForm, openDiscountForm]) {
+          for (const open of [openProductForm, openBrandForm, openDiscountForm]) {
             await open(e2e, lang);
             await assertNoOverflow(e2e, `${open.name} (${lang}, ${viewport.width})`);
             const box = await e2e.page.$eval('[role="dialog"]', (dialog) => {
@@ -246,7 +252,7 @@ describe('admin layout, keyboard and accessibility', () => {
                 totalSales: 0,
                 totalOrders: 0,
                 averageOrderValue: 0,
-                ordersByStatus: { Pending: 0, Confirmed: 0, Shipped: 0, Delivered: 0, Cancelled: 0 },
+                ordersByStatus: { Pending: 0, Confirmed: 0, Shipped: 0, OutForDelivery: 0, Delivered: 0, Cancelled: 0 },
                 lowStockCount: 0,
                 collectedRevenue: 0,
                 totalProducts: 0,
@@ -358,9 +364,6 @@ describe('admin layout, keyboard and accessibility', () => {
           const sku = await e2e.page.waitForSelector('input[aria-label="SKU 1"]');
           assert.ok(sku);
           await setValue(sku, `E2E-FAIL-${tok}`);
-          const variantPrice = await e2e.page.waitForSelector(`input[aria-label="${pick(lang, 'Price', 'السعر')} 1"]`);
-          assert.ok(variantPrice);
-          await setValue(variantPrice, '10');
           await e2e.page.click('[role="dialog"] button[type="submit"]');
           assert.equal(await waitForText(e2e.page, '[role="dialog"] [role="alert"]', (text) => text.length > 0), serverError);
           assert.equal(create.hits, 1);
@@ -374,16 +377,27 @@ describe('admin layout, keyboard and accessibility', () => {
           const invSearch = await e2e.page.waitForSelector('[data-panel="inventory"] input[type="text"]');
           assert.ok(invSearch);
           await setValue(invSearch, fixture.sku);
-          await e2e.page.waitForSelector(`[data-panel="inventory"] select option[value="${fixture.product.id}"]`, { timeout: 15_000 });
-          await fill(e2e.page, pick(lang, 'Product', 'المنتج'), fixture.product.id);
+          await e2e.page.waitForSelector(`[data-inventory-product="${fixture.product.id}"]`, { timeout: 15_000 });
+          await clickText(
+            e2e.page,
+            `[data-inventory-product="${fixture.product.id}"] button`,
+            pick(lang, 'Adjust stock', 'تعديل المخزون'),
+          );
+          await e2e.page.waitForSelector('[role="dialog"] form[data-form="inventory"]');
           await fill(e2e.page, pick(lang, 'Adjustment (+/−)', 'التعديل (+/−)'), '-2');
           await fill(e2e.page, pick(lang, 'Reason *', 'السبب *'), 'network failure');
-          await clickText(e2e.page, '[data-panel="inventory"] button', pick(lang, 'Apply adjustment', 'تطبيق التعديل'));
+          await clickText(
+            e2e.page,
+            '[role="dialog"] form[data-form="inventory"] button',
+            pick(lang, 'Apply adjustment', 'تطبيق التعديل'),
+          );
           assert.equal(await waitForText(e2e.page, '[data-error="inventory"]', (text) => text.length > 0), networkMessage);
           assert.equal(adjust.hits, 1);
           assert.match(await waitForText(e2e.page, '[data-field="current-stock"]', (text) => text.length > 0), /8 /);
           const stock = (await admin.adminProducts(`status=all&search=${fixture.sku}&pageSize=5`)).products[0].variants[0].stock;
           assert.equal(stock, 8);
+          await e2e.page.keyboard.press('Escape');
+          await e2e.page.waitForSelector('[role="dialog"]', { hidden: true });
 
           // Coupon creation failing: modal stays, inline error, no success.
           const coupon = e2e.fulfillRequests(/\/api\/v1\/admin\/discounts$/, 500, { method: 'POST', times: 1 });

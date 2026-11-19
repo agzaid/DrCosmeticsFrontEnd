@@ -25,6 +25,7 @@ the prose index. Cross-fixture `{ "$ref": "file.json#/path" }` entries are docum
 | Auth | HttpOnly cookie `luma_auth`; guest cookie `luma_guest`; CSRF header `X-XSRF-TOKEN` on unsafe methods. 401/403 are JSON, never redirects. |
 | Idempotency | Header `X-Idempotency-Key` on `POST /orders` only. |
 | Caching | Every `/api` and `/health` response carries `Cache-Control: no-store`: nothing personal (orders, addresses, admin lists) or fast-changing (prices, stock) is stored by a browser or an intermediary. Hashed files under `/assets` and uploads under `/media` are cached as immutable; `index.html` is `no-cache`. |
+| Language | The caller sends `Accept-Language` (`en` or `ar`; anything else, or no header, is English). The API words in that language the problem-details `detail`, the `errors.*` messages of the `/files` endpoints, the `title` of every error code and the answers the pipeline itself words (401, 403, 404 for an unknown `/api` path, 429, 413, CSRF failure, 409 concurrency, 503 unknown commit outcome, 500). Only the UI culture follows the header; numbers and dates stay `en-US`. **Not localized yet:** the messages other use cases word themselves (catalog, checkout, orders, brands, categories, banners, discounts, ...) stay English whatever was asked. The storefront sends the language its visitor chose (`luma_language`), not the browser's; the pages under `/admin` are always English. |
 | Tracing | Every response carries `traceId` (also in Problem Details and structured logs). |
 | OpenAPI | Document at `/openapi/v1.json`; interactive explorer at `/swagger`. Served in Development, or wherever `OpenApi:Enabled` is `true`; **off** in Staging/Production by default. Every operation has summary, request/response examples, and documented error codes. |
 
@@ -34,6 +35,7 @@ the prose index. Cross-fixture `{ "$ref": "file.json#/path" }` entries are docum
 |---|---|---|
 | `ValidationFailed` | 400 | field errors present in `errors` |
 | `InvalidQuantity` | 400 | quantity not an integer in 1..99 |
+| `InvalidResetToken` | 400 | password-reset link unknown, blocked, wrong, expired or already used (one identical answer for every case) |
 | `InvalidIdempotencyKey` / `IdempotencyKeyRequired` | 400 | header missing or malformed |
 | `InvalidPaging` / `InvalidSort` | 400 | query parameter out of contract |
 | `EmptyCart` | 400 | no lines supplied |
@@ -52,9 +54,10 @@ the prose index. Cross-fixture `{ "$ref": "file.json#/path" }` entries are docum
 | `PaymentConflict` | 409 | collection replay with a different amount, an amount that is not the order total, or a concurrent payment change |
 | `PaymentCollectedCannotCancel` | 409 | cancellation after collection |
 | `PaymentNotEligible` | 409 | collection before `Shipped` |
+| `EmailUnavailable` | 503 | password reset by email is not configured on the server (global answer, never account-specific) |
 | `OutcomeUnknown` | 503 | the database commit was not acknowledged and its result could not be verified; the operation was **not** re-executed (retry with the same idempotency key) |
-| `RateLimited` | 429 | sign-in, registration, guest-session or order-placement rate limit reached; `Retry-After` says when to retry (limits: `DEPLOYMENT.md` section 6) |
-| `PayloadTooLarge` | 413 | request body above the host limit (uploads above 5 MB are a 400 `ValidationFailed` on `file`) |
+| `RateLimited` | 429 | sign-in, registration, password-reset, guest-session or order-placement rate limit reached; `Retry-After` says when to retry (limits: `DEPLOYMENT.md` section 6) |
+| `PayloadTooLarge` | 413 | request body above the host limit of 10 MB (an image above 5 MB or a document above 8 MB is a 400 `ValidationFailed` on `file`) |
 | `InternalError` | 500 | no internal detail leaked; `traceId` only |
 
 Validation field keys are the **camelCase form field paths** the UI already renders
@@ -117,6 +120,8 @@ Interactive documentation is generated from these; the table is the implementati
 | GET | `/auth/csrf` | none | — | 200 `{ token, headerName }` | — |
 | POST | `/auth/register` | none | `{ email, fullName, mobileNumber?, password }` | 201 `{ user }` + auth cookie | 400, 409 |
 | POST | `/auth/login` | none | `{ email, password }` | 200 `{ user }` + auth cookie | 401, 423? |
+| POST | `/auth/forgot-password` | none | `{ email, language }` (`language`: `en` or `ar`) | 204, always, whether or not the account exists | 400 `ValidationFailed` (`errors.email`), 429, 503 `EmailUnavailable` |
+| POST | `/auth/reset-password` | none | `{ email, token, newPassword }` | 204; does **not** sign the user in | 400 `InvalidResetToken`, 400 `ValidationFailed` (`errors.newPassword`), 429 |
 | POST | `/auth/logout` | cookie + CSRF | — | 204; ends **every** session of the account (security stamp rotated), so a copied cookie stops working | 401 |
 | GET | `/auth/me` | cookie | — | 200 `{ user }` | 401 |
 | GET | `/customer/orders` | customer | `page, pageSize` | 200 `{ orders, page, pageSize, total, totalPages }` | 401 |
@@ -130,6 +135,14 @@ Interactive documentation is generated from these; the table is the implementati
 
 `GET /auth/me` returns `user.addresses` and `user.wishlist` so a single call rehydrates the account.
 
+Password recovery (D-AUTH-5): the reset link is `<storefront origin>/#reset-password?email=<url-encoded>&token=<url-encoded>`.
+The data is in the URL **fragment** so it never reaches a server, an access log or a `Referer` header.
+`POST /auth/forgot-password` answers 204 for every well-formed email (no account enumeration); the email is sent
+from a background queue, and at most one reset email per account per 60 seconds is sent (a repeat inside the window
+is silently ignored, same 204). `language` selects the language of the email; anything other than `en` or `ar` falls
+back to English. Both endpoints use the `auth` rate limiter. A rejected new password does not consume the token;
+a successful reset rotates the security stamp (ends every session of the account) and lifts an automatic lockout.
+
 ### 2.5 Administration (policy `Admin`)
 
 | Method | Path | Request | Success |
@@ -138,18 +151,33 @@ Interactive documentation is generated from these; the table is the implementati
 | GET | `/admin/orders` | `status?, search?, page, pageSize` | 200 paged `{ orders, … }` |
 | PATCH | `/admin/orders/{id}/status` | `{ status, note? }` | 200 `{ order }` |
 | POST | `/admin/orders/{id}/payment/collect` | `{ amount?, note? }` | 200 `{ order }` |
-| GET | `/admin/products` | `status=published\|archived\|all, search?, page, pageSize` | 200 paged `{ products, … }` |
+| GET | `/admin/products` | `status=published\|archived\|all, search?, category?, brand?, page, pageSize` | 200 paged `{ products, … }` |
 | GET | `/admin/products/{id}` | — | 200 `{ product }` (any status) |
 | POST | `/admin/products` | `ProductWriteDto` | 201 `{ product }` |
 | PUT | `/admin/products/{id}` | `ProductWriteDto` (full replace of supplied fields) | 200 `{ product }` |
 | DELETE | `/admin/products/{id}` | — | 200 `{ product }` (archived, never deleted) |
+| GET | `/admin/brands` | — | 200 `{ brands }`; each carries `productCount` |
+| POST | `/admin/brands` | `{ name, origin?, logoUrl? }` | 201 `{ brand }` |
+| PUT | `/admin/brands/{id}` | `{ name, origin?, logoUrl? }` | 200 `{ brand }` |
+| DELETE | `/admin/brands/{id}` | — | 200 `{ brand }`; 409 `BrandInUse` while products still use it |
 | POST | `/admin/inventory/adjust` | `{ productId, variantId, delta \| (newStock + expectedVersion), reason }` | 200 `{ product }` |
 | GET | `/admin/discounts` | — | 200 `{ discounts }` |
 | POST | `/admin/discounts` | `DiscountWriteDto` | 201 `{ discount }` |
 | DELETE | `/admin/discounts/{code}` | — | 200 `{ discount }` (archived) |
 | GET | `/admin/banners` | — | 200 `{ banners }` (including inactive) |
 | PUT | `/admin/banners` | `{ banners: [...] }` | 200 `{ banners }` |
-| POST | `/admin/images` | `multipart/form-data` file | 201 `{ url }` |
+| POST | `/files/images` | `multipart/form-data`, the first file part is the file: JPEG, PNG or WebP, at most 5 MB | 201 `{ id, kind: "image", fileName, contentType, sizeBytes, url, uploadedAtUtc }`, `url` is `/media/<32 hex>.<ext>` (public) |
+| POST | `/files/documents` | same request: PDF, Word `.docx`, Excel `.xlsx`, CSV or plain text, at most 8 MB | 201 the same fields with `kind: "document"` and `url` `/api/v1/files/<id>` (an administrator-only address, not a public file) |
+| GET | `/files/{id}` | — | 200 the stored file (image or document) as an attachment under the name it was uploaded with, its real content type, `X-Content-Type-Options: nosniff`; 404 `NotFound` when the id is unknown or the file has gone missing from disk |
+| GET | `/files` | `?kind=image\|document`, `?search=` (a word in the uploaded name), `?page=` (default 1), `?pageSize=` (default 24, at most 100) | 200 `{ items, page, pageSize, total }`; an item is the same object an upload answers with, newest first |
+
+The `/files` endpoints are administrator only (401 `NotAuthenticated` / 403 `Forbidden`) and the uploads need the `X-XSRF-TOKEN` header like every unsafe call. Both uploads decide the type by the file's bytes, never by its name or declared type. A refusal (wrong type, too large,
+no file, not `multipart/form-data`) is 400 `ValidationFailed` with the reason in `errors.file` and, because it is the only
+problem, the same text as `detail`; a malformed multipart body is a 400 `ValidationFailed` with the framework's reason
+under `errors.request`; a body above the 10 MB host limit is 413 `PayloadTooLarge`. Nothing is stored and no record
+is written for any refusal. `/files/*` replaces `POST /admin/images` (it answered `{ url }`); the old route no longer
+exists and gives the generic 404. Files live under `FileStorage:RootPath` (`images` and `documents` beneath it; `DEPLOYMENT.md`),
+one record per file in `document.StoredFiles`.
 
 ### 2.6 Operations
 
@@ -327,7 +355,7 @@ operations. The generated document is the source for the NSwag TypeScript client
 | Catalog read (`products`, `categories`, `brands`, `banners`) incl. `ids` batch filter | implemented |
 | Auth (`csrf`, `register`, `login`, `logout`, `me`) + guest session | implemented |
 | Customer (`orders` read, `addresses` CRUD, `wishlist` read/add/remove) | implemented |
-| Admin products (list/create/update/archive), inventory adjust, discounts, banners, image upload | implemented |
+| Admin products (list/create/update/archive), brands (list/create/update/delete), inventory adjust, discounts, banners, image upload | implemented |
 | Checkout (`quote`, `orders`, `orders/{id}`, `checkout/attempts/{key}`) | implemented |
 | Admin metrics (`GET /admin/metrics`) | implemented |
 | Admin orders (`GET /admin/orders`, `PATCH …/status`) | implemented |

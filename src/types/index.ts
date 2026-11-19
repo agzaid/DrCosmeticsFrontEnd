@@ -34,8 +34,10 @@ export type Coverage = 'sheer' | 'medium' | 'full';
 export interface Product {
   id: string;
   name: LocalizedString;
-  brand: string;
-  category: ProductCategory;
+  brandId: string; // opaque brand key (brand-<hex>), what a write posts
+  brand: string; // the brand's display name
+  categoryId: string; // opaque category key (cat-<hex>), what a write posts
+  category: ProductCategory; // the category's public slug, what ?category= takes
   subCategory?: string;
   description: LocalizedString;
   ingredients: LocalizedString;
@@ -58,7 +60,10 @@ export interface Product {
 }
 
 export interface CategoryItem {
-  id: ProductCategory;
+  /** Opaque key (cat-<hex>). Products are saved against it; it never appears in a URL. */
+  id: string;
+  /** The readable, public identifier: what `?category=` and a banner's ctaCategory carry. */
+  slug: ProductCategory;
   name: LocalizedString;
   description: LocalizedString;
   iconName: string;
@@ -66,7 +71,10 @@ export interface CategoryItem {
 }
 
 export interface BrandItem {
+  /** Opaque key (brand-<hex>). Products are saved against it. */
   id: string;
+  /** The readable, public identifier: what `?brand=` carries. */
+  slug: string;
   name: string;
   origin: string;
   logoUrl?: string;
@@ -123,7 +131,7 @@ export interface CartTotals {
   total: number;
 }
 
-export type OrderStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled';
+export type OrderStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'OutForDelivery' | 'Delivered' | 'Cancelled';
 
 export interface ShippingAddress {
   fullName: string;
@@ -198,5 +206,5 @@ export interface AdminMetrics {
 }
 
 export type NavigationExtra =
-  | { category?: ProductCategory; search?: string; sort?: string }
+  | { category?: ProductCategory | 'all'; search?: string; sort?: string }
   | Product;

@@ -307,7 +307,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
             >
               <option value="all">{t('filter.allBrands')}</option>
               {brands.map((b) => (
-                <option key={b.id} value={b.name}>
+                <option key={b.id} value={b.slug}>
                   {b.name}
                 </option>
               ))}
@@ -568,7 +568,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                     >
                       <option value="all">{t('filter.allBrands')}</option>
                       {brands.map((b) => (
-                        <option key={b.id} value={b.name}>{b.name}</option>
+                        <option key={b.id} value={b.slug}>{b.name}</option>
                       ))}
                     </select>
                   </div>

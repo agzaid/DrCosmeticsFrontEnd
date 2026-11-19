@@ -4,7 +4,7 @@ import { Product } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
-import { formatPrice, startingPrice } from '../../utils/shopLogic';
+import { formatPrice, isSoldOut, startingPrice } from '../../utils/shopLogic';
 import { mediaUrl } from '../../api/config';
 
 interface ProductCardProps {
@@ -24,9 +24,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const isFavorited = isInWishlist(product.id);
 
-  // Check total stock across variants
-  const totalStock = product.variants.reduce((sum, v) => sum + v.stock, 0);
-  const isOutOfStock = totalStock <= 0;
+  const isOutOfStock = isSoldOut(product);
 
   // Shade variants with hex colors
   const shadeVariants = product.variants.filter((v) => v.shadeHex);

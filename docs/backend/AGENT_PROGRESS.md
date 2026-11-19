@@ -76,7 +76,7 @@ Release candidate: **1.0.0-rc.1** (`RELEASE_CHECKLIST.md` carries the package ha
 - Inventory adjustment: atomic delta or version-guarded absolute set via `OUTPUT` SQL, with audited `InventoryAdjustments`.
 - Discount administration (create/archive/list) with normalised codes and lifetime usage.
 - Banner administration (upsert; absent banners deactivated).
-- Image upload: magic-byte sniffing, 5 MB cap, server-generated filename, local storage behind `IImageStorage`, served at `/media`.
+- Image upload: magic-byte sniffing, 5 MB cap, server-generated filename, local storage behind `IImageStorage`, served at `/media`. (Since replaced by the files feature: `IFileStorage`, `POST /files/images` and `/files/documents`, `FileStorage:RootPath` — see D-P8-12 in `DECISIONS.md`.)
 - Frontend: ShopPage server paging/filters with reset-on-filter-change and stale-response cancellation; Home collections and product modal related items use their own queries; wishlist resolves by ids; Navbar search queries the API; AdminPage rewritten on the typed client with variant editing, upload, inventory, discounts, banners.
 
 **Evidence**

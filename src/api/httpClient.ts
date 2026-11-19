@@ -4,8 +4,10 @@
  * - HttpOnly cookie credentials
  * - antiforgery token bootstrap + automatic single retry after a token refresh
  * - RFC 9457 Problem Details mapped to a typed ApiError
+ * - the visitor's chosen language as Accept-Language, so the server words the messages it returns in it
  */
 
+import { readStoredLanguage } from '../utils/language';
 import { API_BASE } from './config';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -100,7 +102,10 @@ export async function getCsrfToken(force = false): Promise<string> {
   }
 
   if (!csrfRequest) {
-    csrfRequest = fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' })
+    csrfRequest = fetch(`${API_BASE}/auth/csrf`, {
+      credentials: 'include',
+      headers: { 'Accept-Language': readStoredLanguage() },
+    })
       .then(async (response) => {
         if (!response.ok) {
           throw ApiError.fromPayload(response.status, await safeJson(response));
@@ -154,7 +159,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const method = (options.method ?? 'GET').toUpperCase();
 
   const attempt = async (isRetry: boolean): Promise<T> => {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', 'Accept-Language': readStoredLanguage() };
     let body: BodyInit | undefined;
 
     if (options.formData) {

@@ -146,3 +146,26 @@ export function startingPrice(product: { price: number; variants: { price: numbe
   const prices = product.variants.filter((variant) => variant.isActive !== false).map((variant) => variant.price);
   return prices.length > 0 ? Math.min(...prices) : product.price;
 }
+
+/**
+ * How far the starting price undercuts the struck-through original price, as a whole percentage. 0 means "not on
+ * sale": no original price (the API sends null) or one that is not above the starting price. A real discount never
+ * rounds down to 0%.
+ */
+export function discountPercent(product: {
+  price: number;
+  originalPrice?: number | null;
+  variants: { price: number; isActive?: boolean }[];
+}): number {
+  const original = product.originalPrice;
+  const price = startingPrice(product);
+  if (!original || original <= price) {
+    return 0;
+  }
+  return Math.max(1, Math.round((1 - price / original) * 100));
+}
+
+/** No stock left on any variant: the state the shop card and the search results both label as out of stock. */
+export function isSoldOut(product: { variants: { stock: number }[] }): boolean {
+  return product.variants.reduce((sum, variant) => sum + variant.stock, 0) <= 0;
+}

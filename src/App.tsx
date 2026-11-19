@@ -3,6 +3,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { CartProvider } from './context/CartContext';
+import { DeliverySettingsProvider } from './context/DeliverySettingsContext';
 import { WishlistProvider } from './context/WishlistContext';
 
 import { Navbar } from './components/layout/Navbar';
@@ -20,19 +21,38 @@ import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 
 import type { Product, ProductCategory, PromotionalBanner, CategoryItem, BrandItem, Order, NavigationExtra } from './types';
+import type { PasswordResetLink } from './api/types';
 import { catalogApi } from './api/api';
 import { ErrorState } from './components/common/ErrorState';
 
 const LAST_ORDER_STORAGE_KEY = 'luma_last_order_id';
+const RESET_HASH_PREFIX = '#reset-password';
 
 function isProduct(value: NavigationExtra): value is Product {
   return 'variants' in value;
 }
 
+// The reset email links to `/#reset-password?email=...&token=...`. The data sits in the fragment so it never
+// reaches a server, an access log or a Referer header.
+function readPasswordResetLink(): PasswordResetLink | null {
+  const { hash } = window.location;
+  if (!hash.startsWith(`${RESET_HASH_PREFIX}?`)) {
+    return null;
+  }
+  const params = new URLSearchParams(hash.slice(RESET_HASH_PREFIX.length + 1));
+  const email = params.get('email');
+  const token = params.get('token');
+  return email && token ? { email, token } : null;
+}
+
 function AppContent() {
-  const [currentView, setCurrentView] = useState<string>(() =>
-    localStorage.getItem(LAST_ORDER_STORAGE_KEY) ? 'order-confirmation' : 'home',
-  );
+  const [resetLink, setResetLink] = useState<PasswordResetLink | null>(readPasswordResetLink);
+  const [currentView, setCurrentView] = useState<string>(() => {
+    if (resetLink) {
+      return 'account';
+    }
+    return localStorage.getItem(LAST_ORDER_STORAGE_KEY) ? 'order-confirmation' : 'home';
+  });
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'all'>('all');
   const [shopFilter, setShopFilter] = useState<{ search?: string; sort?: string }>({});
 
@@ -50,6 +70,27 @@ function AppContent() {
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(() =>
     localStorage.getItem(LAST_ORDER_STORAGE_KEY),
   );
+
+  // Remove the token from the address bar and the history entry as soon as it has been read.
+  useEffect(() => {
+    const scrubHash = () => {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    };
+    const handleHashChange = () => {
+      const link = readPasswordResetLink();
+      if (link) {
+        setResetLink(link);
+        setCurrentView('account');
+        scrubHash();
+      }
+    };
+
+    if (window.location.hash.startsWith(RESET_HASH_PREFIX)) {
+      scrubHash();
+    }
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -202,6 +243,8 @@ function AppContent() {
               <AccountPage
                 onNavigateToShop={() => handleNavigate('shop')}
                 onNavigateToAdmin={() => handleNavigate('admin')}
+                resetLink={resetLink}
+                onResetFinished={() => setResetLink(null)}
               />
             )}
 
@@ -233,11 +276,13 @@ export default function App() {
     <LanguageProvider>
       <ToastProvider>
         <AuthProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <AppContent />
-            </WishlistProvider>
-          </CartProvider>
+          <DeliverySettingsProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <AppContent />
+              </WishlistProvider>
+            </CartProvider>
+          </DeliverySettingsProvider>
         </AuthProvider>
       </ToastProvider>
     </LanguageProvider>

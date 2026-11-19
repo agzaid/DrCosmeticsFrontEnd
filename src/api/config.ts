@@ -13,7 +13,7 @@ import { parseApiOrigin } from './apiOrigin';
 
 const API_PREFIX = '/api/v1';
 
-/** Where the API serves uploaded files (Uploads:PublicBasePath on the API; vite.config.ts forwards the same path). */
+/** Where the API serves uploaded images (under FileStorage:RootPath; vite.config.ts forwards the same path). */
 const MEDIA_PREFIX = '/media/';
 
 /** Origin that API and media requests go to; '' means the page's own origin. */
@@ -29,4 +29,12 @@ export const API_BASE = `${API_ORIGIN}${API_PREFIX}`;
  */
 export function mediaUrl(url: string | undefined): string | undefined {
   return API_ORIGIN !== '' && url?.startsWith(MEDIA_PREFIX) ? `${API_ORIGIN}${url}` : url;
+}
+
+/**
+ * The address to open a file the files API named: an image under /media/, a document under the API's own path. Both
+ * are root-relative and belong to the API host, which is only the page's own host when the app is served by it.
+ */
+export function fileUrl(url: string): string {
+  return API_ORIGIN !== '' && url.startsWith('/') ? `${API_ORIGIN}${url}` : url;
 }

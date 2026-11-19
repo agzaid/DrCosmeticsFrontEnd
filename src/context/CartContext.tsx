@@ -3,6 +3,7 @@ import type { CartItem, CartTotals, Product, ProductVariant } from '../types';
 import { MAX_LINE_QUANTITY, calculateCartTotals } from '../utils/shopLogic';
 import { useToast } from './ToastContext';
 import { useLanguage } from './LanguageContext';
+import { useDeliverySettings } from './DeliverySettingsContext';
 import { checkoutApi } from '../api/api';
 import { ApiError } from '../api/httpClient';
 import type { QuoteIssue, QuoteResponse } from '../api/types';
@@ -34,6 +35,7 @@ const COUPON_STORAGE_KEY = 'luma_beauty_cart_coupon';
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
   const { language, l } = useLanguage();
+  const deliverySettings = useDeliverySettings();
 
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
@@ -136,7 +138,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [items, appliedCouponCode, refreshNonce]);
 
-  const fallbackTotals = useMemo(() => calculateCartTotals(items, null), [items]);
+  const fallbackTotals = useMemo(
+    () =>
+      calculateCartTotals(
+        items,
+        null,
+        deliverySettings.freeShippingThreshold,
+        deliverySettings.deliveryFee,
+      ),
+    [items, deliverySettings.freeShippingThreshold, deliverySettings.deliveryFee],
+  );
 
   const totals: CartTotals = useMemo(() => {
     if (!quote) {

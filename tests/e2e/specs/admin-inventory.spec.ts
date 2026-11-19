@@ -35,22 +35,32 @@ async function lowStockSkus(api: ApiClient): Promise<Set<string>> {
   return new Set(metrics.lowStockItems.map((item) => item.variantSku));
 }
 
-/** Opens the Inventory tab and selects `product` (and optionally one of its variants). */
+/** Opens the Inventory tab, finds `product` in the grid and opens its adjustment dialog on `variantId`. */
 async function selectVariant(e2e: E2ePage, lang: Lang, product: Product, variantId = product.variants[0].id): Promise<void> {
   await openTab(e2e, 'inventory');
   const search = await e2e.page.waitForSelector('[data-panel="inventory"] input[type="text"]');
   assert.ok(search);
   await setValue(search, product.variants[0].sku);
-  await e2e.page.waitForSelector(`[data-panel="inventory"] select option[value="${product.id}"]`, { timeout: 15_000 });
-  await setValue(await control(e2e.page, pick(lang, 'Product', 'المنتج')), product.id);
-  await e2e.page.waitForSelector(`[data-panel="inventory"] select option[value="${variantId}"]`);
-  await setValue(await control(e2e.page, pick(lang, 'Variant', 'الدرجة')), variantId);
+  await e2e.page.waitForSelector(`[data-inventory-product="${product.id}"]`, { timeout: 15_000 });
+  await clickText(
+    e2e.page,
+    `[data-inventory-product="${product.id}"] button`,
+    pick(lang, 'Adjust stock', 'تعديل المخزون'),
+  );
+  await e2e.page.waitForSelector('[role="dialog"] form[data-form="inventory"]');
+  if (variantId !== product.variants[0].id) {
+    await setValue(await control(e2e.page, pick(lang, 'Variant', 'الدرجة')), variantId);
+  }
 }
 
 async function applyDelta(e2e: E2ePage, lang: Lang, delta: string, reason: string): Promise<void> {
   await fill(e2e.page, pick(lang, 'Adjustment (+/−)', 'التعديل (+/−)'), delta);
   await fill(e2e.page, pick(lang, 'Reason *', 'السبب *'), reason);
-  await clickText(e2e.page, '[data-panel="inventory"] button', pick(lang, 'Apply adjustment', 'تطبيق التعديل'));
+  await clickText(
+    e2e.page,
+    '[role="dialog"] form[data-form="inventory"] button',
+    pick(lang, 'Apply adjustment', 'تطبيق التعديل'),
+  );
 }
 
 async function currentStockCard(e2e: E2ePage, expected: number, state: string): Promise<void> {
@@ -158,7 +168,7 @@ describe('admin inventory', () => {
     it(`[${lang}] low-stock boundaries 0/1/5/6 are classified identically on screen and in the API`, async () => {
       const sku = `E2E-${token('LS')}`;
       const product = await admin.createProduct(
-        productBody({
+        await productBody(admin, {
           sku,
           variants: [0, 1, 5, 6].map((stock) => ({
             sku: `${sku}-S${stock}`,
@@ -233,7 +243,7 @@ describe('admin inventory', () => {
       // The count the admin sees is current, so it applies.
       await fill(e2e.page, 'New stock count', '20');
       await fill(e2e.page, 'Reason *', 'physical count');
-      await clickText(e2e.page, '[data-panel="inventory"] button', 'Apply adjustment');
+      await clickText(e2e.page, '[role="dialog"] form[data-form="inventory"] button', 'Apply adjustment');
       await currentStockCard(e2e, 20, 'ok');
       assert.equal(await stockOf(admin, fixture.product.id, fixture.variant.id), 20);
 
@@ -242,7 +252,7 @@ describe('admin inventory', () => {
       await secondAdmin.adjustStock(fixture.product.id, fixture.variant.id, 3, 'second admin');
       await fill(e2e.page, 'New stock count', '40');
       await fill(e2e.page, 'Reason *', 'physical count after the change');
-      await clickText(e2e.page, '[data-panel="inventory"] button', 'Apply adjustment');
+      await clickText(e2e.page, '[role="dialog"] form[data-form="inventory"] button', 'Apply adjustment');
       const refused = await waitForText(e2e.page, '[data-error="inventory"]', (text) => text.length > 0);
       assert.match(refused, /stock changed while you were working/i);
       assert.equal(await stockOf(admin, fixture.product.id, fixture.variant.id), 23, 'the stale exact count changed nothing');

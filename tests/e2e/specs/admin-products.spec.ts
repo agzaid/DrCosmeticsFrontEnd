@@ -1,12 +1,12 @@
 /**
- * (c) Merchandising through the admin UI: bilingual product with two variants, image upload, edit, publish, public
- * visibility, archive (A-32..A-34, A-40, AR-1, AR-2, AR-6) and the upload / duplicate-SKU rejection paths.
+ * (c) Merchandising through the admin UI: bilingual product with its stock-keeping row, image upload, edit, publish,
+ * public visibility, archive (A-32..A-34, A-40, AR-1, AR-2, AR-6) and the upload / duplicate-SKU rejection paths.
  */
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
-import type { Browser, ElementHandle, Page } from 'puppeteer-core';
+import type { Browser, Page } from 'puppeteer-core';
 import type { Product } from '../../../src/types';
 import { ApiClient, adminClient, e2eEnv } from '../harness/api.ts';
 import { closeBrowser, launchBrowser, newPage, type E2ePage, type Lang } from '../harness/browser.ts';
@@ -42,54 +42,19 @@ function uploadFile(name: string, bytes: Buffer): string {
   return file;
 }
 
-async function variantField(page: Page, label: string, row: number): Promise<void> {
-  await page.waitForSelector(`input[aria-label="${label} ${row}"]`);
-}
-
-async function setVariant(
-  page: Page,
-  lang: Lang,
-  row: number,
-  values: { sku: string; shadeEn: string; shadeAr: string; hex: string; size: string; price: string; stock: string },
-): Promise<void> {
-  const labels = {
-    shadeEn: pick(lang, 'Shade (EN)', 'الدرجة (EN)'),
-    shadeAr: pick(lang, 'Shade (AR)', 'الدرجة (AR)'),
-    hex: pick(lang, 'Shade hex', 'كود اللون'),
-    size: pick(lang, 'Size', 'الحجم'),
-    price: pick(lang, 'Price', 'السعر'),
-    stock: pick(lang, 'Initial stock', 'المخزون الابتدائي'),
-  };
-  const set = async (label: string, value: string): Promise<void> => {
-    await variantField(page, label, row);
-    const handle = await page.$(`input[aria-label="${label} ${row}"]`);
-    assert.ok(handle, `variant field ${label} ${row}`);
-    await setValue(handle, value);
-  };
-  await set('SKU', values.sku);
-  await set(labels.shadeEn, values.shadeEn);
-  await set(labels.shadeAr, values.shadeAr);
-  await set(labels.hex, values.hex);
-  await set(labels.size, values.size);
-  await set(labels.price, values.price);
-  await set(labels.stock, values.stock);
+/** The modal edits the product's one stock-keeping row: a single SKU and a single stock count. */
+async function setStockKeeping(page: Page, lang: Lang, sku: string, stock: string): Promise<void> {
+  const skuInput = await page.waitForSelector('input[aria-label="SKU 1"]');
+  assert.ok(skuInput, 'SKU input');
+  await setValue(skuInput, sku);
+  const stockInput = await page.waitForSelector(`input[aria-label="${pick(lang, 'Stock', 'المخزون')}"]`);
+  assert.ok(stockInput, 'stock input');
+  await setValue(stockInput, stock);
 }
 
 async function openProductsTab(e2e: E2ePage): Promise<void> {
   await openTab(e2e, 'products');
   await e2e.page.waitForSelector('[data-panel="products"] tbody tr');
-}
-
-/** Which 1-based row of the open variant table carries `sku` (server order is not guaranteed). */
-async function variantRowOf(page: Page, sku: string): Promise<number> {
-  const row = await page.$$eval(
-    '[data-variant-row]',
-    (rows, wanted) =>
-      rows.find((candidate) => candidate.querySelector<HTMLInputElement>('input[aria-label^="SKU"]')?.value === wanted)?.getAttribute('data-variant-row') ?? '',
-    sku,
-  );
-  assert.notEqual(row, '', `variant ${sku} not found in the form`);
-  return Number(row);
 }
 
 /** Submits the product form and waits for it to close; surfaces the form's own error if it stays open. */
@@ -118,7 +83,7 @@ async function findByToken(admin: ApiClient, tok: string): Promise<Product[]> {
   return (await admin.adminProducts(`status=all&search=${encodeURIComponent(tok)}&pageSize=60`)).products;
 }
 
-describe('admin merchandising (products, variants, images)', () => {
+describe('admin merchandising (products, stock, images)', () => {
   let browser: Browser;
   let admin: ApiClient;
   const { baseUrl, runDir } = (() => {
@@ -141,7 +106,6 @@ describe('admin merchandising (products, variants, images)', () => {
     it(`[${lang}] create (archived) -> upload image -> edit -> publish -> public search by Arabic name -> archive`, async () => {
       const tok = token('MRC');
       const skuA = `e2e-a-${tok.toLowerCase()}`; // typed lower case: must be stored upper case (AR-6)
-      const skuB = `E2E-B-${tok}`;
       const nameEn = `E2E Velvet Lip ${tok}`;
       const { e2e } = await adminPage(browser, lang);
       const shopper = await newPage(browser, { lang });
@@ -169,87 +133,57 @@ describe('admin merchandising (products, variants, images)', () => {
         );
         assert.match(imageUrl, /^\/media\/[0-9a-f]{32}\.png$/, 'upload returns a server-generated safe name');
 
-        await setVariant(e2e.page, lang, 1, {
-          sku: skuA,
-          shadeEn: 'Cairo Plum',
-          shadeAr: 'برقوقي قاهري',
-          hex: '#7E3F50',
-          size: '3.8g',
-          price: '150',
-          stock: '12',
-        });
-        await clickText(e2e.page, '[role="dialog"] button', pick(lang, 'Add variant', 'إضافة درجة'));
-        await setVariant(e2e.page, lang, 2, {
-          sku: skuB,
-          shadeEn: 'Nile Rose',
-          shadeAr: 'وردي النيل',
-          hex: '#C47D76',
-          size: '5g',
-          price: '175.5',
-          stock: '8',
-        });
+        await setStockKeeping(e2e.page, lang, skuA, '12');
         await e2e.screenshot(`admin-products-${lang}-create-form`);
         await submitProductForm(e2e);
         await waitForToast(e2e.page, pick(lang, 'Product created.', 'تم إنشاء المنتج.'));
 
-        // Persistence (API): bilingual name byte-identical, SKU normalised, both variants, image, archived => not public.
+        // Persistence (API): bilingual name byte-identical, SKU normalised, the stock row, image, archived => not public.
         const [created] = await findByToken(admin, tok);
         assert.ok(created, 'product persisted');
         assert.equal(created.name.en, nameEn);
         assert.equal(Buffer.from(created.name.ar, 'utf8').toString('hex'), Buffer.from(AR1_NAME, 'utf8').toString('hex'), 'AR-1 byte-identical');
         assert.equal(created.status, 'archived');
         assert.deepEqual(created.images, [imageUrl]);
-        const bySku = new Map(created.variants.map((variant) => [variant.sku, variant]));
-        assert.deepEqual([...bySku.keys()].sort(), [skuA.toUpperCase(), skuB].sort());
-        const variantA = bySku.get(skuA.toUpperCase());
-        const variantB = bySku.get(skuB);
-        assert.equal(variantA?.stock, 12);
-        assert.equal(variantA?.price, 150);
-        assert.equal(variantA?.size, '3.8g');
-        assert.equal(variantA?.shadeName?.ar, 'برقوقي قاهري');
-        assert.equal(variantA?.shadeHex?.toUpperCase(), '#7E3F50');
-        assert.equal(variantB?.price, 175.5);
-        assert.equal(variantB?.stock, 8);
+        assert.equal(created.variants.length, 1, 'the form writes one stock-keeping row');
+        const variant = created.variants[0];
+        assert.equal(variant.sku, skuA.toUpperCase(), 'AR-6: the SKU is stored upper case');
+        assert.equal(variant.stock, 12);
+        assert.equal(variant.price, 150, 'a new variant takes the base price');
         assert.equal(await publicProductStatus(created.id, baseUrl), 404, 'an archived product is not public');
         const uploaded = await fetch(`${baseUrl}${imageUrl}`);
         assert.equal(uploaded.status, 200);
         assert.equal(uploaded.headers.get('content-type'), 'image/png');
 
-        // The table shows it (localised name, status) and the variants' SKUs.
+        // The table shows it (localised name, status) and the product's SKU.
         await searchProducts(e2e.page, tok);
         await waitForRow(e2e.page, created.id);
         const row = `[data-product-id="${created.id}"]`;
         const rowText = await waitForText(e2e.page, row, (text) => text.includes(lang === 'ar' ? AR1_NAME : nameEn));
         assert.ok(rowText.includes(pick(lang, 'Archived', 'مؤرشف')), `status badge localised: ${rowText}`);
-        assert.ok(rowText.includes(skuA.toUpperCase()) && rowText.includes(skuB));
+        assert.ok(rowText.includes(skuA.toUpperCase()), `SKU listed: ${rowText}`);
 
-        // Edit: change price / size / shade of variant 2, publish. Existing stock is read-only here.
+        // Edit: the modal carries the one stock-keeping row, and a stock change is accepted here (A-32).
         await e2e.page.click(`${row} button:nth-of-type(1)`);
         await e2e.page.waitForSelector('[role="dialog"] form[data-form="product"]');
         const arInput = await control(e2e.page, `${nameLabel} (العربية) *`);
         assert.equal(await arInput.evaluate((element) => (element as HTMLInputElement).value), AR1_NAME, 'Arabic name rendered byte-identical in the form');
-        const stockInput = await e2e.page.$(`input[aria-label="${pick(lang, 'Current stock (read-only)', 'المخزون الحالي (للقراءة فقط)')} 1"]`);
-        assert.equal(await stockInput?.evaluate((element) => (element as HTMLInputElement).readOnly), true, 'existing stock is read-only');
-        const rowB = await variantRowOf(e2e.page, skuB);
-        const field = async (label: string): Promise<ElementHandle<Element>> => {
-          const handle = await e2e.page.$(`input[aria-label="${label} ${rowB}"]`);
-          assert.ok(handle, `${label} ${rowB}`);
-          return handle;
-        };
-        await setValue(await field(pick(lang, 'Price', 'السعر')), '199');
-        await setValue(await field(pick(lang, 'Size', 'الحجم')), '6g');
-        await setValue(await field(pick(lang, 'Shade (EN)', 'الدرجة (EN)')), 'Nile Rose Deep');
+        assert.equal(
+          await e2e.page.$eval('input[aria-label="SKU 1"]', (element) => (element as HTMLInputElement).value),
+          skuA.toUpperCase(),
+          'the form shows the stored SKU',
+        );
+        await setStockKeeping(e2e.page, lang, skuA.toUpperCase(), '20');
         await setValue(await control(e2e.page, pick(lang, 'Status', 'الحالة')), 'published');
         await submitProductForm(e2e);
         await waitForToast(e2e.page, pick(lang, 'Product updated.', 'تم تحديث المنتج.'));
 
         const edited = await adminProduct(admin, created.id);
         assert.equal(edited.status, 'published');
-        const editedB = edited.variants.find((variant) => variant.sku === skuB);
-        assert.equal(editedB?.price, 199);
-        assert.equal(editedB?.size, '6g');
-        assert.equal(editedB?.shadeName?.en, 'Nile Rose Deep');
-        assert.equal(edited.variants.find((variant) => variant.sku === skuA.toUpperCase())?.stock, 12, 'stock unchanged by a product edit');
+        assert.equal(edited.variants.length, 1);
+        assert.equal(edited.variants[0].sku, skuA.toUpperCase());
+        assert.equal(edited.variants[0].stock, 20, 'the product form may restock an existing variant');
+        assert.equal(edited.variants[0].price, 150, 'the variant keeps its price');
         assert.equal(Buffer.from(edited.name.ar, 'utf8').toString('hex'), Buffer.from(AR1_NAME, 'utf8').toString('hex'));
         assert.equal(await publicProductStatus(created.id, baseUrl), 200, 'published product is public');
 
@@ -303,15 +237,7 @@ describe('admin merchandising (products, variants, images)', () => {
         assert.ok(urlInput);
         await setValue(urlInput, 'https://images.example.com/dup.png');
         // Same SKU in a different case: SKUs are case-insensitive.
-        await setVariant(e2e.page, lang, 1, {
-          sku: existing.sku.toLowerCase(),
-          shadeEn: '',
-          shadeAr: '',
-          hex: '',
-          size: '10ml',
-          price: '90',
-          stock: '3',
-        });
+        await setStockKeeping(e2e.page, lang, existing.sku.toLowerCase(), '3');
         await e2e.page.click('[role="dialog"] button[type="submit"]');
         const message = await waitForText(e2e.page, '[role="dialog"] [data-error="sku"]', (text) => text.length > 0);
         if (lang === 'en') {
@@ -331,7 +257,7 @@ describe('admin merchandising (products, variants, images)', () => {
     });
   }
 
-  it('[en] client-side form checks: two variants with one SKU, and a product without an image', async () => {
+  it('[en] client-side form check: a product without an image is refused before any request', async () => {
     const { e2e } = await adminPage(browser, 'en');
     try {
       await openProductsTab(e2e);
@@ -340,19 +266,15 @@ describe('admin merchandising (products, variants, images)', () => {
       await fill(e2e.page, 'Product name (English) *', 'E2E Checks');
       await fill(e2e.page, 'Product name (العربية) *', 'فحوصات');
       await fill(e2e.page, 'Base price (EGP) *', '50');
-      await setVariant(e2e.page, 'en', 1, { sku: 'E2E-SAME', shadeEn: '', shadeAr: '', hex: '', size: '1', price: '50', stock: '1' });
+      await setStockKeeping(e2e.page, 'en', 'E2E-NOIMG', '1');
       await e2e.page.click('[role="dialog"] button[type="submit"]');
       const noImage = await waitForText(e2e.page, '[role="dialog"] [role="alert"]', (text) => text.length > 0);
       assert.match(noImage, /at least one product image/i);
-
-      const urlInput = await e2e.page.waitForSelector('input[aria-label="Image URL 1"]');
-      assert.ok(urlInput);
-      await setValue(urlInput, 'https://images.example.com/a.png');
-      await clickText(e2e.page, '[role="dialog"] button', 'Add variant');
-      await setVariant(e2e.page, 'en', 2, { sku: 'e2e-same', shadeEn: '', shadeAr: '', hex: '', size: '2', price: '50', stock: '1' });
-      await e2e.page.click('[role="dialog"] button[type="submit"]');
-      const dup = await waitForText(e2e.page, '[role="dialog"] [data-error="sku"]', (text) => text.length > 0);
-      assert.match(dup, /same SKU/i);
+      assert.equal(
+        e2e.requests.filter((request) => request.method === 'POST' && request.url.endsWith('/api/v1/admin/products')).length,
+        0,
+        'the check is client-side: nothing was posted',
+      );
       e2e.assertClean();
     } finally {
       await e2e.close();
@@ -373,13 +295,14 @@ describe('admin merchandising (products, variants, images)', () => {
     assert.equal((await adminProduct(admin, fixture.product.id)).status, 'archived');
 
     const current = await adminProduct(admin, fixture.product.id);
-    const unknownBrand = await admin.request('PUT', `/api/v1/admin/products/${fixture.product.id}`, {
-      body: { ...productBody({ sku: fixture.sku }), brand: 'No Such Brand', variants: [] },
+    const unknownBrand = await admin.request<{ errors?: Record<string, string[]> }>('PUT', `/api/v1/admin/products/${fixture.product.id}`, {
+      body: { ...(await productBody(admin, { sku: fixture.sku })), brandId: 'brand-0000', variants: [] },
     });
     assert.equal(unknownBrand.status, 400);
+    assert.ok(unknownBrand.data.errors?.brandId, 'the unknown key is reported under brandId');
     assert.equal(current.variants.length, 1);
     const withoutVariants = await admin.request<{ product: Product }>('PUT', `/api/v1/admin/products/${fixture.product.id}`, {
-      body: { ...productBody({ sku: fixture.sku }), status: 'published', variants: undefined },
+      body: { ...(await productBody(admin, { sku: fixture.sku })), status: 'published', variants: undefined },
     });
     assert.equal(withoutVariants.status, 200);
     assert.equal(withoutVariants.data.product.variants.length, 1, 'omitted variants are preserved');
@@ -404,7 +327,7 @@ describe('admin merchandising (products, variants, images)', () => {
           await input.uploadFile(uploadFile('huge.png', Buffer.concat([PNG_BYTES, Buffer.alloc(6 * 1024 * 1024)])));
           await waitForText(e2e.page, '[data-error="upload"]', (text) => (lang === 'en' ? text.includes('5 MB') : text.includes('5 ميجابايت')));
 
-          const uploads = e2e.requests.filter((request) => request.method === 'POST' && request.url.endsWith('/api/v1/admin/images'));
+          const uploads = e2e.requests.filter((request) => request.method === 'POST' && request.url.endsWith('/api/v1/files/images'));
           assert.equal(uploads.length, 0, 'rejected files never reach the server');
           assert.equal(await e2e.page.$eval('input[aria-label="' + pick(lang, 'Image URL', 'رابط الصورة') + ' 1"]', (element) => (element as HTMLInputElement).value), '', 'no URL was filled in');
 

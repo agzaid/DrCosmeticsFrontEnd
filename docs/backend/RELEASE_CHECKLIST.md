@@ -105,7 +105,7 @@ None of these could run here. Run them on a staging server by `DEPLOYMENT.md` an
 ## 8. Known issues and residual risk
 
 - Signing out ends every session of the account in every browser (D-P7-6).
-- No password-reset path exists (no e-mail provider): a lost administrator password is handled by creating another administrator.
+- Password reset by e-mail works only when the Gmail SMTP settings and `PasswordReset:LinkBaseUrl` are configured (otherwise 503 `EmailUnavailable`); without it a lost administrator password is handled by creating another administrator.
 - No durable application log sink is bundled; the event log, console (when stdout logging is enabled) and IIS request logs are the sources.
 - Uploaded images are local files outside the database and must be backed up with it.
 - The failure suite simulates a lost COMMIT acknowledgement at the EF interceptor and cannot reproduce a real network partition on one machine (`TEST_EVIDENCE.md` section 2).

@@ -63,7 +63,7 @@ describe('admin access control', () => {
   });
 
   for (const lang of LANGS) {
-    it(`[${lang}] anonymous visitor: no admin entry points, /admin deep link shows no admin data`, async () => {
+    it(`[${lang}] anonymous visitor: no admin entry points, /admin leads to the sign-in page and shows no admin data`, async () => {
       const e2e = await newPage(browser, { lang });
       try {
         await e2e.goto('/');
@@ -73,10 +73,10 @@ describe('admin access control', () => {
         await openAccountMenu(e2e.page);
         assert.equal(await adminEntryPointCount(e2e.page, lang), 0, 'admin entry in the anonymous account menu');
 
+        // /admin is the server-rendered administration area: a visitor who is not signed in is sent to its sign-in page.
         await e2e.goto('/admin');
-        await waitForStorefront(e2e);
-        assert.equal(await e2e.page.$$eval('[data-tab],[data-panel]', (nodes) => nodes.length), 0, 'admin UI visible at /admin');
-        assert.equal(await adminEntryPointCount(e2e.page, lang), 0);
+        assert.equal(new URL(e2e.page.url()).pathname, '/admin/account/login', 'anonymous /admin must end on the sign-in page');
+        assert.equal(await e2e.page.$$eval('[data-tab],[data-panel],[data-metric]', (nodes) => nodes.length), 0, 'admin UI visible at /admin');
         assertNoAdminTraffic(e2e);
         e2e.assertClean();
       } finally {
@@ -100,9 +100,11 @@ describe('admin access control', () => {
         const menuButtons = await e2e.page.$$eval('[data-testid="nav-account"] + div button', (nodes) => nodes.length);
         assert.equal(menuButtons, 2, 'customer menu = account + logout');
 
+        // A customer is turned away at the area's access-denied page (a 403); the store session stays signed in.
+        e2e.allow({ statuses: [{ status: 403, method: 'GET', url: /\/admin\/account\/denied(\?|$)/ }] });
         await e2e.goto('/admin');
-        await waitForStorefront(e2e);
-        assert.equal(await e2e.page.$$eval('[data-tab],[data-panel]', (nodes) => nodes.length), 0);
+        assert.equal(new URL(e2e.page.url()).pathname, '/admin/account/denied', 'a customer /admin must end on the access-denied page');
+        assert.equal(await e2e.page.$$eval('[data-tab],[data-panel],[data-metric]', (nodes) => nodes.length), 0);
         assertNoAdminTraffic(e2e);
         e2e.assertClean();
       } finally {

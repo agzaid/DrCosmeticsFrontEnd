@@ -37,21 +37,15 @@ export interface SpecProduct {
   token: string;
 }
 
-let brandNames: string[] | undefined;
-
 export async function createSpecProduct(admin: ApiClient, options: SpecProductOptions = {}): Promise<SpecProduct> {
-  if (!brandNames) {
-    const brands = await admin.get<{ brands: { name: string }[] }>('/api/v1/brands');
-    brandNames = brands.data.brands.map((brand) => brand.name);
-  }
   const token = `Qx${randomBytes(4).toString('hex')}`;
   const price = options.price ?? 250;
   const variants: SpecVariant[] = options.variants ?? [{ size: '30ml', price, stock: options.stock ?? 10 }];
   const sku = `E2E-${randomBytes(5).toString('hex').toUpperCase()}`;
   const product = await admin.createProduct({
     name: { en: `${options.namePrefix ?? 'Spec Item'} ${token}`, ar: options.nameAr ?? `منتج اختبار ${token}` },
-    brand: brandNames[0],
-    category: options.category ?? 'makeup',
+    brandId: (await admin.referenceData()).brands[0].id,
+    categoryId: await admin.categoryKey(options.category ?? 'makeup'),
     subCategory: 'Spec',
     description: { en: `Spec product ${token}.`, ar: `منتج اختبار ${token}.` },
     ingredients: { en: 'Water.', ar: 'ماء.' },

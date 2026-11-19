@@ -8,6 +8,7 @@ import { ApiError } from '../api/httpClient';
 interface AuthResult {
   success: boolean;
   error?: string;
+  code?: string;
 }
 
 interface RegisterInput {
@@ -25,6 +26,8 @@ interface AuthContextType {
   register: (data: RegisterInput) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+  resetPassword: (email: string, token: string, newPassword: string) => Promise<AuthResult>;
   updateUserAddresses: (addresses: UserAddress[]) => void;
 }
 
@@ -37,6 +40,9 @@ const AR_SERVER_MESSAGES: Record<string, string> = {
   'Please correct the highlighted fields': 'يرجى مراجعة الحقول المدخلة',
   'Password must be at least 8 characters': 'يجب ألا تقل كلمة المرور عن 8 أحرف',
   'Too many requests. Please wait a moment and try again.': 'محاولات كثيرة جداً. يرجى الانتظار لحظة ثم المحاولة مرة أخرى.',
+  'This reset link is invalid or has expired. Please request a new one.': 'رابط إعادة التعيين غير صالح أو انتهت صلاحيته. يرجى طلب رابط جديد.',
+  'Password reset by email is not available right now. Please contact the store.': 'خدمة إعادة تعيين كلمة المرور عبر البريد غير متاحة حالياً. يرجى التواصل مع المتجر.',
+  'Please enter a valid email address': 'يرجى إدخال بريد إلكتروني صحيح',
 };
 
 function messageOf(error: unknown, language: Language): string {
@@ -48,6 +54,14 @@ function messageOf(error: unknown, language: Language): string {
     return 'تعذر الاتصال بالخادم، حاولي مرة أخرى';
   }
   return error instanceof Error ? error.message : 'Network error';
+}
+
+function failureOf(error: unknown, language: Language): AuthResult {
+  return {
+    success: false,
+    error: messageOf(error, language),
+    code: error instanceof ApiError ? error.code : undefined,
+  };
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -87,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showToast(language === 'ar' ? `أهلاً بعودتك، ${profile.fullName}!` : `Welcome back, ${profile.fullName}!`, 'success');
       return { success: true };
     } catch (error) {
-      return { success: false, error: messageOf(error, language) };
+      return failureOf(error, language);
     }
   };
 
@@ -98,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showToast(language === 'ar' ? 'أهلاً بك في لوما بيوتي!' : 'Welcome to Luma Beauty!', 'success');
       return { success: true };
     } catch (error) {
-      return { success: false, error: messageOf(error, language) };
+      return failureOf(error, language);
     }
   };
 
@@ -118,6 +132,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(profile);
   };
 
+  const requestPasswordReset = async (email: string): Promise<AuthResult> => {
+    try {
+      await authApi.requestPasswordReset(email, language);
+      return { success: true };
+    } catch (error) {
+      return failureOf(error, language);
+    }
+  };
+
+  const resetPassword = async (email: string, token: string, newPassword: string): Promise<AuthResult> => {
+    try {
+      await authApi.resetPassword({ email, token, newPassword });
+      return { success: true };
+    } catch (error) {
+      return failureOf(error, language);
+    }
+  };
+
   const updateUserAddresses = (addresses: UserAddress[]): void => {
     setUser((current) => (current ? { ...current, addresses } : current));
   };
@@ -132,6 +164,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         refreshUser,
+        requestPasswordReset,
+        resetPassword,
         updateUserAddresses,
       }}
     >

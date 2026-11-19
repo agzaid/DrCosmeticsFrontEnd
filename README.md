@@ -28,6 +28,10 @@ npm install
 dotnet user-secrets set "AdminSetup:Email" "admin@lumabeauty.com" --project backend/src/LumaBeauty.Api
 dotnet user-secrets set "AdminSetup:Password" "<a strong password>" --project backend/src/LumaBeauty.Api
 dotnet user-secrets set "DemoSeed:CustomerPassword" "<another strong password>" --project backend/src/LumaBeauty.Api
+
+# Optional: only password reset by email needs these (a Gmail address and its App Password); restart the API after setting them.
+dotnet user-secrets set "Email:Smtp:UserName" "<gmail address>" --project backend/src/LumaBeauty.Api
+dotnet user-secrets set "Email:Smtp:Password" "<16-character app password>" --project backend/src/LumaBeauty.Api
 ```
 
 Every day, in two terminals:

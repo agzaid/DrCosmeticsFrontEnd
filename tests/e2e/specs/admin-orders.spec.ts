@@ -33,6 +33,7 @@ const STATUS_LABEL: Record<string, Record<Lang, string>> = {
   Pending: { en: 'Pending', ar: 'قيد الانتظار' },
   Confirmed: { en: 'Confirmed', ar: 'تم التأكيد' },
   Shipped: { en: 'Shipped', ar: 'تم الشحن' },
+  OutForDelivery: { en: 'Out for delivery', ar: 'خرج للتوصيل' },
   Delivered: { en: 'Delivered', ar: 'تم التسليم' },
   Cancelled: { en: 'Cancelled', ar: 'ملغي' },
 };
@@ -120,7 +121,7 @@ describe('admin fulfilment', () => {
   });
 
   for (const lang of LANGS) {
-    it(`[${lang}] Pending -> Confirmed -> Shipped -> collect cash -> Delivered; legal actions only; customer sees each change (A-36, A-37)`, async () => {
+    it(`[${lang}] Pending -> Confirmed -> Shipped -> Out for delivery -> collect cash -> Delivered; legal actions only; customer sees each change (A-36, A-37)`, async () => {
       const fixture = await createTestProduct(admin, { stock: 10, price: 200 });
       const { order, customer } = await placeCustomerOrder(fixture.variant.id, 2);
       assert.equal(await stockOf(admin, fixture), 8);
@@ -153,7 +154,7 @@ describe('admin fulfilment', () => {
         assert.equal(shipped.status, 'Shipped');
         assert.equal(shipped.paymentStatus, 'Unpaid', 'Shipped must not set payment');
         assert.equal(shipped.paymentCollectedAmount ?? null, null);
-        assert.deepEqual(await rowState(e2e, order), { status: 'Shipped', payment: 'Unpaid', actions: ['Delivered'], canCollect: true });
+        assert.deepEqual(await rowState(e2e, order), { status: 'Shipped', payment: 'Unpaid', actions: ['OutForDelivery'], canCollect: true });
 
         // Collect the exact total (the UI asks first and names the amount).
         await e2e.page.click(`${rowOf(order)} button[aria-label*="${order.orderNumber}"]`);
@@ -162,7 +163,7 @@ describe('admin fulfilment', () => {
         assert.equal(collected.paymentStatus, 'Collected');
         assert.equal(collected.paymentCollectedAmount, order.total, 'the collected amount is exactly the order total');
         assert.ok(e2e.dialogs.some((message) => message.includes(order.orderNumber)), 'collection asked for confirmation naming the order');
-        assert.deepEqual(await rowState(e2e, order), { status: 'Shipped', payment: 'Collected', actions: ['Delivered'], canCollect: false });
+        assert.deepEqual(await rowState(e2e, order), { status: 'Shipped', payment: 'Collected', actions: ['OutForDelivery'], canCollect: false });
         await waitForToast(e2e.page, pick(lang, `Cash collected for ${order.orderNumber}.`, `تم تحصيل نقدية الطلب ${order.orderNumber}.`));
 
         // After collection the order can no longer be cancelled: not offered in the UI, refused by the API.
@@ -174,6 +175,16 @@ describe('admin fulfilment', () => {
         assert.equal(afterCollect.status, STATUS_LABEL.Shipped[lang]);
         assert.match(afterCollect.payment, lang === 'en' ? /Collected/ : /تم التحصيل/);
 
+        await changeStatus(e2e, order, 'OutForDelivery');
+        await waitForRowStatus(e2e, order, 'OutForDelivery', 'Collected');
+        assert.equal((await adminOrder(admin, order.orderNumber)).status, 'OutForDelivery');
+        assert.deepEqual(
+          await rowState(e2e, order),
+          { status: 'OutForDelivery', payment: 'Collected', actions: ['Delivered'], canCollect: false },
+        );
+        const outForDelivery = await customerStatusBadge(shopper, order);
+        assert.equal(outForDelivery.status, STATUS_LABEL.OutForDelivery[lang]);
+
         await changeStatus(e2e, order, 'Delivered');
         await waitForRowStatus(e2e, order, 'Delivered', 'Collected');
         const delivered = await adminOrder(admin, order.orderNumber);
@@ -182,7 +193,7 @@ describe('admin fulfilment', () => {
         assert.deepEqual(await rowState(e2e, order), { status: 'Delivered', payment: 'Collected', actions: [], canCollect: false });
         assert.deepEqual(
           delivered.statusHistory.map((entry) => entry.status),
-          ['Pending', 'Confirmed', 'Shipped', 'Delivered'],
+          ['Pending', 'Confirmed', 'Shipped', 'OutForDelivery', 'Delivered'],
         );
 
         const final = await customerStatusBadge(shopper, order);
@@ -278,7 +289,7 @@ describe('admin fulfilment', () => {
         const select = await e2e.page.waitForSelector(filterSelector);
         assert.ok(select);
         const options = await e2e.page.$$eval(filterSelector + ' option', (nodes) => nodes.map((node) => (node as HTMLOptionElement).value));
-        assert.deepEqual(options, ['all', 'Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled']);
+        assert.deepEqual(options, ['all', 'Pending', 'Confirmed', 'Shipped', 'OutForDelivery', 'Delivered', 'Cancelled']);
         await setValue(select, 'Shipped');
         const shippedRows = await settle((rows) => rows.includes(shippedOrder.order.orderNumber) && !rows.includes(named.order.orderNumber));
         const statuses = await e2e.page.$$eval('[data-panel="orders"] [data-order]', (rows) => rows.map((row) => row.getAttribute('data-order-status')));
@@ -353,6 +364,7 @@ describe('admin fulfilment', () => {
 
     assert.equal((await setOrderStatus(admin, order.id, 'Cancelled')).status, 409, 'collected then cancel is impossible');
     assert.equal((await setOrderStatus(admin, order.id, 'Pending')).status, 409, 'no backwards transitions');
+    assert.equal((await setOrderStatus(admin, order.id, 'OutForDelivery')).status, 200);
     assert.equal((await setOrderStatus(admin, order.id, 'Delivered')).status, 200);
     assert.equal((await setOrderStatus(admin, order.id, 'Cancelled')).status, 409, 'Delivered is final');
     const final = (await allAdminOrders(admin)).find((entry) => entry.id === order.id);

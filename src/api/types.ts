@@ -1,5 +1,25 @@
 import type { AdminMetrics, BrandItem, CategoryItem, LocalizedString, Order, Product, PromotionalBanner, User, UserAddress } from '../types';
 
+/** What the server answers when it stores a file (POST /files/images or /files/documents), and one library row. */
+export interface StoredFile {
+  id: string;
+  kind: 'image' | 'document';
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  /** An image's public address (/media/...), or the API address a signed-in administrator downloads a document from. */
+  url: string;
+  uploadedAtUtc: string;
+}
+
+/** One page of the file library (GET /files). It carries no totalPages: the caller has the page size. */
+export interface StoredFilesPage {
+  items: StoredFile[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
 export interface Paged {
   page: number;
   pageSize: number;
@@ -107,6 +127,17 @@ export interface AuthUserResponse {
   user: User;
 }
 
+export interface ResetPasswordPayload {
+  email: string;
+  token: string;
+  newPassword: string;
+}
+
+export interface PasswordResetLink {
+  email: string;
+  token: string;
+}
+
 export interface CsrfResponse {
   token: string;
   headerName: string;
@@ -126,6 +157,40 @@ export interface CategoriesResponse {
 
 export interface BrandsResponse {
   brands: BrandItem[];
+}
+
+/** A brand as the admin console lists it: the storefront fields plus how many products carry it. */
+export interface AdminBrand {
+  id: string;
+  slug: string;
+  name: string;
+  origin: string;
+  logoUrl?: string | null;
+  productCount: number;
+}
+
+export interface BrandsAdminResponse {
+  brands: AdminBrand[];
+}
+
+/** The delivery terms quoted to shoppers; the admin response also carries who last changed them. */
+export interface DeliverySettings {
+  deliveryFee: number;
+  freeShippingThreshold: number;
+  updatedAtUtc?: string;
+  updatedBy?: string | null;
+}
+
+export interface DeliverySettingsWrite {
+  deliveryFee: number;
+  freeShippingThreshold: number;
+}
+
+/** What the admin brand form posts; the server mints the id and the slug. */
+export interface BrandWrite {
+  name: string;
+  origin?: string | null;
+  logoUrl?: string | null;
 }
 
 export interface BannersResponse {
@@ -152,8 +217,8 @@ export interface VariantWrite {
 
 export interface ProductWrite {
   name: LocalizedString;
-  brand: string;
-  category: string;
+  brandId: string;
+  categoryId: string;
   subCategory?: string | null;
   description: LocalizedString;
   ingredients: LocalizedString;

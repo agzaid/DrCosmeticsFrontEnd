@@ -15,10 +15,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
-import { formatPrice, startingPrice } from '../../utils/shopLogic';
+import { useDeliverySettings } from '../../context/DeliverySettingsContext';
+import { formatPrice } from '../../utils/shopLogic';
 import type { NavigationExtra, Product, ProductCategory } from '../../types';
-import { catalogApi } from '../../api/api';
-import { mediaUrl } from '../../api/config';
+import { SearchResultsPanel } from './SearchResultsPanel';
+import { useProductSearch } from './useProductSearch';
 
 interface NavbarProps {
   currentView: string;
@@ -33,23 +34,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   selectedCategory,
   onSelectCategory,
 }) => {
-  const { language, setLanguage, t, l } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { itemCount, totals, setIsDrawerOpen } = useCart();
   const { wishlistIds } = useWishlist();
   const { user, isAdmin, logout } = useAuth();
+  const deliverySettings = useDeliverySettings();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setIsSearchFocused(false);
+        setIsSearchOpen(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
@@ -59,47 +62,47 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-
-  useEffect(() => {
-    const term = searchQuery.trim();
-    if (!term) {
-      setSearchResults([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      catalogApi
-        .products({ search: term, pageSize: 5 }, controller.signal)
-        .then((result) => {
-          if (!controller.signal.aborted) {
-            setSearchResults(result.products);
-          }
-        })
-        .catch(() => undefined);
-    }, 250);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [searchQuery]);
+  const searchTerm = searchQuery.trim();
+  const isSearchPanelOpen = isSearchOpen && searchTerm.length > 0;
+  // Only the open panel searches: the mobile menu's input shares `searchQuery` but has no panel to fill.
+  const search = useProductSearch(isSearchPanelOpen ? searchTerm : '');
 
   const handleProductSelect = (product: Product) => {
     setSearchQuery('');
-    setIsSearchFocused(false);
+    setIsSearchOpen(false);
     onNavigate('product-details', product);
   };
 
-  const categoriesList: { id: ProductCategory | 'all'; labelKey: string }[] = [
-    { id: 'all', labelKey: 'cat.all' },
-    { id: 'makeup', labelKey: 'cat.makeup' },
-    { id: 'skincare', labelKey: 'cat.skincare' },
-    { id: 'haircare', labelKey: 'cat.haircare' },
-    { id: 'fragrance', labelKey: 'cat.fragrance' },
-    { id: 'tools', labelKey: 'cat.tools' },
+  // The panel's count and the shop's results must be the same set, so an earlier category filter is dropped.
+  const showAllResults = () => {
+    setIsSearchOpen(false);
+    setIsMobileMenuOpen(false);
+    onNavigate('shop', { category: 'all', search: searchTerm });
+  };
+
+  // The nav offers the fixed storefront categories by slug: `?category=` and onSelectCategory both take the slug.
+  const categoriesList: { slug: ProductCategory | 'all'; labelKey: string }[] = [
+    { slug: 'all', labelKey: 'cat.all' },
+    { slug: 'makeup', labelKey: 'cat.makeup' },
+    { slug: 'skincare', labelKey: 'cat.skincare' },
+    { slug: 'haircare', labelKey: 'cat.haircare' },
+    { slug: 'fragrance', labelKey: 'cat.fragrance' },
+    { slug: 'tools', labelKey: 'cat.tools' },
   ];
+
+  const freeDeliveryAlways =
+    deliverySettings.deliveryFee === 0 || deliverySettings.freeShippingThreshold === 0;
+  const deliveryNotice = !deliverySettings.loaded
+    ? language === 'ar'
+      ? 'شحن مجاني للطلبات المؤهلة'
+      : 'Free shipping on eligible orders'
+    : freeDeliveryAlways
+      ? language === 'ar'
+        ? 'توصيل مجاني لجميع الطلبات'
+        : 'Free delivery on all orders'
+      : language === 'ar'
+        ? `شحن مجاني فوق ${formatPrice(deliverySettings.freeShippingThreshold, 'ar')}`
+        : `Free Egypt shipping over ${formatPrice(deliverySettings.freeShippingThreshold, 'en')}`;
 
   return (
     <header className="sticky top-0 z-40 bg-[#FAF7F5]/95 backdrop-blur-md border-b border-[#F0E3DF] shadow-xs">
@@ -108,9 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap min-w-0 pr-2">
             <Sparkles className="w-3.5 h-3.5 text-[#E8998D] shrink-0" />
-            <span className="font-medium tracking-wide truncate">
-              {language === 'ar' ? 'شحن مجاني فوق 600 ج.م' : 'Free Egypt shipping over 600 EGP'}
-            </span>
+            <span className="font-medium tracking-wide truncate">{deliveryNotice}</span>
           </div>
 
           <div className="flex items-center gap-3 text-xs shrink-0">
@@ -176,22 +177,34 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {/* Search Bar with Live Preview */}
-          <div ref={searchRef} className="hidden md:flex flex-1 max-w-md relative">
+          <div
+            ref={searchRef}
+            className="hidden md:flex flex-1 max-w-md"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && isSearchOpen) {
+                setIsSearchOpen(false);
+                searchInputRef.current?.focus();
+              }
+            }}
+          >
             <div className="relative w-full">
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setIsSearchFocused(true);
+                  setIsSearchOpen(true);
                 }}
-                onFocus={() => setIsSearchFocused(true)}
+                onFocus={(e) => {
+                  // Returning from the results with Escape must not reopen them; arriving from anywhere else does.
+                  if (!searchRef.current?.contains(e.relatedTarget)) {
+                    setIsSearchOpen(true);
+                  }
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchQuery.trim()) {
-                    setIsSearchFocused(false);
-                    onNavigate('shop', { search: searchQuery.trim() });
-                  } else if (e.key === 'Escape') {
-                    setIsSearchFocused(false);
+                  if (e.key === 'Enter' && searchTerm) {
+                    showAllResults();
                   }
                 }}
                 aria-label={t('nav.search')}
@@ -211,50 +224,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Instant Search Results Dropdown */}
-            {isSearchFocused && searchQuery.trim().length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#FAF7F5] border border-[#E8D6D1] rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1">
-                {searchResults.length > 0 ? (
-                  <div className="p-2 divide-y divide-[#F3E7E4]">
-                    <div className="px-3 py-1.5 text-[11px] font-bold text-[#8B6E7E] uppercase tracking-wider">
-                      {t('nav.matching')}
-                    </div>
-                    {searchResults.map((prod) => (
-                      <button
-                        key={prod.id}
-                        onClick={() => handleProductSelect(prod)}
-                        className="w-full flex items-center gap-3 p-2 hover:bg-[#F3E7E4] rounded-xl text-left transition"
-                      >
-                        <img
-                          src={mediaUrl(prod.images[0])}
-                          alt={l(prod.name)}
-                          className="w-11 h-11 object-cover rounded-lg shrink-0 border border-[#E8D6D1]"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#8B6E7E] font-medium">{prod.brand}</p>
-                          <p className="text-sm font-semibold text-[#2D1E2F] truncate">{l(prod.name)}</p>
-                          <p className="text-xs font-bold text-[#3B2332]">{formatPrice(startingPrice(prod), language)}</p>
-                        </div>
-                      </button>
-                    ))}
-                    <div className="p-2 text-center bg-[#F7EFEF]/60">
-                      <button
-                        onClick={() => {
-                          setIsSearchFocused(false);
-                          onNavigate('shop', { search: searchQuery });
-                        }}
-                        className="text-xs font-bold text-[#3B2332] hover:text-[#7A3A54] transition"
-                      >
-                        {t('nav.viewAllResults').replace('{query}', searchQuery)}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-sm text-[#8B6E7E]">
-                    {t('nav.noResults').replace('{query}', searchQuery)}
-                  </div>
-                )}
-              </div>
+            {isSearchPanelOpen && (
+              <SearchResultsPanel
+                term={searchTerm}
+                search={search}
+                onSelectProduct={handleProductSelect}
+                onViewAll={showAllResults}
+              />
             )}
           </div>
 
@@ -387,13 +363,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* 3. Category Navigation Row (Desktop) */}
         <nav className="hidden md:flex items-center justify-center space-x-8 rtl:space-x-reverse py-2 border-t border-[#F0E3DF]">
           {categoriesList.map((cat) => {
-            const isActive = selectedCategory === cat.id;
+            const isActive = selectedCategory === cat.slug;
             return (
               <button
-                key={cat.id}
-                data-testid={`nav-cat-${cat.id}`}
+                key={cat.slug}
+                data-testid={`nav-cat-${cat.slug}`}
                 onClick={() => {
-                  if (onSelectCategory) onSelectCategory(cat.id);
+                  if (onSelectCategory) onSelectCategory(cat.slug);
                   if (currentView !== 'shop') onNavigate('shop');
                 }}
                 className={`text-sm font-semibold tracking-wide transition relative py-1 ${
@@ -422,9 +398,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && searchQuery.trim()) {
-                  setIsMobileMenuOpen(false);
-                  onNavigate('shop', { search: searchQuery.trim() });
+                if (e.key === 'Enter' && searchTerm) {
+                  showAllResults();
                 }
               }}
               aria-label={t('nav.search')}
@@ -438,10 +413,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="grid grid-cols-2 gap-2 pt-2">
             {categoriesList.map((cat) => (
               <button
-                key={cat.id}
-                data-testid={`mobile-cat-${cat.id}`}
+                key={cat.slug}
+                data-testid={`mobile-cat-${cat.slug}`}
                 onClick={() => {
-                  if (onSelectCategory) onSelectCategory(cat.id);
+                  if (onSelectCategory) onSelectCategory(cat.slug);
                   onNavigate('shop');
                   setIsMobileMenuOpen(false);
                 }}
