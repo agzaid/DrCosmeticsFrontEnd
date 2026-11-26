@@ -15,7 +15,7 @@ export const LANGS: Lang[] = ['en', 'ar'];
 /** Visible copy the specs rely on, per language (kept next to the spec so a missing translation fails loudly). */
 export const COPY = {
   adminEntry: { en: 'Admin Portal', ar: 'لوحة الإدارة' },
-  adminTitle: { en: 'Luma Beauty Store Admin', ar: 'لوحة تحكم متجر لوما بيوتي' },
+  adminTitle: { en: 'Dr Cosmetics Store Admin', ar: 'لوحة تحكم متجر دكتور كوزمتكس' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export function pick(lang: Lang, en: string, ar: string): string {

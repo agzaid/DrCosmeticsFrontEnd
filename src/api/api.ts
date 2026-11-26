@@ -16,6 +16,7 @@ import type {
   InventoryAdjustPayload,
   PagedOrders,
   PagedProducts,
+  PagedScraperRows,
   AdminOrderSearchParams,
   AdminMetricsResponse,
   PlaceOrderPayload,
@@ -25,6 +26,15 @@ import type {
   QuoteResponse,
   RegisterPayload,
   ResetPasswordPayload,
+  ScraperApplyResult,
+  ScraperBulkSummary,
+  ScraperCheckResult,
+  ScraperHistory,
+  ScraperLinkResult,
+  ScraperSchedule,
+  ScraperScheduleInput,
+  ScraperSearchParams,
+  ScraperTarget,
   ShippingAddressPayload,
   StoredFile,
   StoredFilesPage,
@@ -173,6 +183,14 @@ export const checkoutApi = {
     return data.order;
   },
 
+  /** Issues the order's invoice on first call; later calls return the same stored number. */
+  async issueInvoice(id: string): Promise<Order> {
+    const data = await apiRequest<{ order: Order }>(`/orders/${encodeURIComponent(id)}/invoice`, {
+      method: 'POST',
+    });
+    return data.order;
+  },
+
   async attempt(idempotencyKey: string): Promise<PlaceOrderResult> {
     return apiRequest<PlaceOrderResult>(`/checkout/attempts/${encodeURIComponent(idempotencyKey)}`);
   },
@@ -288,6 +306,13 @@ export const adminApi = {
     return data.order;
   },
 
+  async issueInvoice(id: string): Promise<Order> {
+    const data = await apiRequest<{ order: Order }>(`/admin/orders/${encodeURIComponent(id)}/invoice`, {
+      method: 'POST',
+    });
+    return data.order;
+  },
+
   products(params: ProductSearchParams = {}): Promise<PagedProducts> {
     return apiRequest<PagedProducts>(`/admin/products${buildQuery(params as Record<string, unknown>)}`);
   },
@@ -357,6 +382,74 @@ export const adminApi = {
       body: { banners },
     });
     return data.banners;
+  },
+
+  /** One page of the price scraper list: every variant with its link to another shop and the newest reading of it. */
+  scraperRows(params: ScraperSearchParams = {}): Promise<PagedScraperRows> {
+    return apiRequest<PagedScraperRows>(`/admin/scraper${buildQuery(params as Record<string, unknown>)}`);
+  },
+
+  /** Every linked variant, for the "check all" loop. */
+  async scraperTargets(): Promise<ScraperTarget[]> {
+    const data = await apiRequest<{ targets: ScraperTarget[] }>('/admin/scraper/targets');
+    return data.targets;
+  },
+
+  scraperHistory(variantId: string): Promise<ScraperHistory> {
+    return apiRequest<ScraperHistory>(`/admin/scraper/${encodeURIComponent(variantId)}/history`);
+  },
+
+  /** Links the variant to a page of another shop, or moves the link. A blank address removes it. */
+  setScraperLink(variantId: string, url: string): Promise<ScraperLinkResult> {
+    return apiRequest<ScraperLinkResult>(`/admin/scraper/${encodeURIComponent(variantId)}/link`, {
+      method: 'PUT',
+      body: { url },
+    });
+  },
+
+  removeScraperLink(variantId: string): Promise<ScraperLinkResult> {
+    return apiRequest<ScraperLinkResult>(`/admin/scraper/${encodeURIComponent(variantId)}/link`, {
+      method: 'DELETE',
+    });
+  },
+
+  /** Reads the price on the variant's linked page. The server may take up to a minute for a shop that needs a browser. */
+  checkScraperPrice(variantId: string): Promise<ScraperCheckResult> {
+    return apiRequest<ScraperCheckResult>(`/admin/scraper/${encodeURIComponent(variantId)}/check`, {
+      method: 'POST',
+    });
+  },
+
+  /** Sets the variant's price to the newest reading, less the reduction (in EGP). */
+  applyScraperPrice(variantId: string, decrease: number): Promise<ScraperApplyResult> {
+    return apiRequest<ScraperApplyResult>(`/admin/scraper/${encodeURIComponent(variantId)}/apply`, {
+      method: 'POST',
+      body: { decrease },
+    });
+  },
+
+  /** Applies every fresh reading in EGP that has not been applied yet; variants that cannot be applied are skipped with a reason. */
+  async applyAllScraperPrices(decrease: number): Promise<ScraperBulkSummary> {
+    const data = await apiRequest<{ summary: ScraperBulkSummary }>('/admin/scraper/apply-all', {
+      method: 'POST',
+      body: { decrease },
+    });
+    return data.summary;
+  },
+
+  /** The automatic daily price check: on or off, its time, when it runs next and how its latest run went. */
+  async scraperSchedule(): Promise<ScraperSchedule> {
+    const data = await apiRequest<{ schedule: ScraperSchedule }>('/admin/scraper/schedule');
+    return data.schedule;
+  },
+
+  /** Switches the automatic price check on or off and sets the time it starts each day (on the shop's clock). */
+  async saveScraperSchedule(input: ScraperScheduleInput): Promise<ScraperSchedule> {
+    const data = await apiRequest<{ schedule: ScraperSchedule }>('/admin/scraper/schedule', {
+      method: 'PUT',
+      body: input,
+    });
+    return data.schedule;
   },
 
   /**

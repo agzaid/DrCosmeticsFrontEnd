@@ -13,7 +13,7 @@ interface LanguageContextType {
 const translations: Record<Language, Record<string, string>> = {
   en: {
     // Brand & Header
-    'brand.name': 'Luma Beauty',
+    'brand.name': 'Dr Cosmetics',
     'brand.tagline': 'Modern Elegance & Clean Formulation',
     'nav.home': 'Home',
     'nav.shop': 'Shop',
@@ -27,9 +27,6 @@ const translations: Record<Language, Record<string, string>> = {
     // Currency & Pricing
     'currency.code': 'EGP',
     'shipping.free': 'FREE',
-    
-    // Service notice
-    'banner.serviceNotice': '✨ Cash on Delivery across Egypt. Live inventory and server-confirmed orders.',
     
     // Categories
     'cat.all': 'All Products',
@@ -116,7 +113,7 @@ const translations: Record<Language, Record<string, string>> = {
     
     // Order Confirmation
     'orderSuccess.title': 'Order Placed With Love!',
-    'orderSuccess.sub': 'Thank you for choosing Luma Beauty. We are preparing your order for express courier dispatch.',
+    'orderSuccess.sub': 'Thank you for choosing Dr Cosmetics. We are preparing your order for express courier dispatch.',
     'orderSuccess.ref': 'Order Reference',
     'orderSuccess.status': 'Current Status',
     'orderSuccess.payCourier': 'Amount to pay upon delivery',
@@ -138,12 +135,13 @@ const translations: Record<Language, Record<string, string>> = {
     'account.noOrders': 'No previous orders found.',
     
     // Admin
-    'admin.title': 'Luma Beauty Store Admin',
+    'admin.title': 'Dr Cosmetics Store Admin',
     'admin.tabOverview': 'Overview',
     'admin.tabProducts': 'Products & Variants',
     'admin.tabBrands': 'Brands',
     'admin.tabOrders': 'Orders & Logistics',
     'admin.tabInventory': 'Inventory Stock',
+    'admin.tabScraper': 'Price Scraper',
     'admin.tabDelivery': 'Delivery Fees',
     'admin.tabDiscounts': 'Discount Coupons',
     'admin.tabBanners': 'Homepage Banners',
@@ -175,7 +173,6 @@ const translations: Record<Language, Record<string, string>> = {
     // Home
     'home.useCodePrefix': 'Use code',
     'home.useCodeSuffix': 'at checkout.',
-    'home.currencyNote': '🇪🇬 Egypt Standard Currency: EGP',
     'home.curated': 'Curated Collections',
     'home.shopByCategory': 'Shop by Category',
     'home.editorsChoice': "Editor's Choice",
@@ -346,16 +343,16 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.codBody': 'Pay safely at your door after inspecting your sealed beauty box.',
     'footer.samplesTitle': 'Free Beauty Samples',
     'footer.samplesBody': 'Delightful luxury skincare & fragrance minis included with every package.',
-    'footer.story': 'Luma Beauty is a modern cosmetics and clean skincare house celebrating Mediterranean warmth, velvety pigments, and scientifically advanced botanical hydration. Designed in Cairo and formulated in European laboratories.',
+    'footer.story': 'Dr Cosmetics is a modern cosmetics and clean skincare house celebrating Mediterranean warmth, velvety pigments, and scientifically advanced botanical hydration. Designed in Cairo and formulated in European laboratories.',
     'footer.madeWith': 'Made with',
     'footer.forLovers': 'for beauty lovers across Egypt.',
     'footer.quickNav': 'Quick Navigation',
-    'footer.rights': 'Luma Beauty Egypt LLC. All rights reserved.',
+    'footer.rights': 'Dr Cosmetics Egypt LLC. All rights reserved.',
     'footer.city': 'Cairo, Egypt',
   },
   ar: {
     // Brand & Header
-    'brand.name': 'لوما بيوتي',
+    'brand.name': 'دكتور كوزمتكس',
     'brand.tagline': 'أناقة عصرية ومستحضرات تجميل فاخرة',
     'nav.home': 'الرئيسية',
     'nav.shop': 'المتجر',
@@ -369,9 +366,6 @@ const translations: Record<Language, Record<string, string>> = {
     // Currency & Pricing
     'currency.code': 'ج.م',
     'shipping.free': 'مجاناً',
-    
-    // Service notice
-    'banner.serviceNotice': '✨ الدفع عند الاستلام في جميع محافظات مصر. مخزون محدث وطلبات مؤكدة من الخادم.',
     
     // Categories
     'cat.all': 'جميع المنتجات',
@@ -458,7 +452,7 @@ const translations: Record<Language, Record<string, string>> = {
     
     // Order Confirmation
     'orderSuccess.title': 'تم استلام طلبك بكل حب!',
-    'orderSuccess.sub': 'شكراً لاختيارك لوما بيوتي. فريقنا يقوم حالياً بتجهيز طلبيتك لشحنها بأسرع وقت.',
+    'orderSuccess.sub': 'شكراً لاختيارك دكتور كوزمتكس. فريقنا يقوم حالياً بتجهيز طلبيتك لشحنها بأسرع وقت.',
     'orderSuccess.ref': 'رقم الطلب المرجعي',
     'orderSuccess.status': 'حالة الطلب الحالية',
     'orderSuccess.payCourier': 'المبلغ المطلوب سداده للمندوب',
@@ -480,12 +474,13 @@ const translations: Record<Language, Record<string, string>> = {
     'account.noOrders': 'لا توجد طلبات سابقة حتى الآن.',
     
     // Admin
-    'admin.title': 'لوحة تحكم متجر لوما بيوتي',
+    'admin.title': 'لوحة تحكم متجر دكتور كوزمتكس',
     'admin.tabOverview': 'نظرة عامة',
     'admin.tabProducts': 'المنتجات والدرجات',
     'admin.tabBrands': 'الماركات',
     'admin.tabOrders': 'الطلبات والشحن',
     'admin.tabInventory': 'المخزون والكميات',
+    'admin.tabScraper': 'مقارنة الأسعار',
     'admin.tabDelivery': 'رسوم التوصيل',
     'admin.tabDiscounts': 'أكواد الخصم',
     'admin.tabBanners': 'بنرات الصفحة الرئيسية',
@@ -517,7 +512,6 @@ const translations: Record<Language, Record<string, string>> = {
     // Home
     'home.useCodePrefix': 'استخدمي الكود',
     'home.useCodeSuffix': 'عند إتمام الطلب.',
-    'home.currencyNote': '🇪🇬 العملة: الجنيه المصري (EGP)',
     'home.curated': 'مجموعات مختارة',
     'home.shopByCategory': 'تسوقي حسب القسم',
     'home.editorsChoice': 'اختيار المحررين',
@@ -688,11 +682,11 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.codBody': 'ادفعي بأمان عند بابك بعد معاينة صندوق الجمال المغلق.',
     'footer.samplesTitle': 'عينات تجميل مجانية',
     'footer.samplesBody': 'عينات مصغرة من العناية الفاخرة والعطور مع كل شحنة.',
-    'footer.story': 'لوما بيوتي دار حديثة لمستحضرات التجميل والعناية النظيفة بالبشرة، تحتفي بدفء المتوسط والألوان المخملية والترطيب النباتي المتطور علمياً. صُممت في القاهرة وصيغت في مختبرات أوروبية.',
+    'footer.story': 'دكتور كوزمتكس دار حديثة لمستحضرات التجميل والعناية النظيفة بالبشرة، تحتفي بدفء المتوسط والألوان المخملية والترطيب النباتي المتطور علمياً. صُممت في القاهرة وصيغت في مختبرات أوروبية.',
     'footer.madeWith': 'صُنع بكل',
     'footer.forLovers': 'لعاشقات الجمال في كل أنحاء مصر.',
     'footer.quickNav': 'روابط سريعة',
-    'footer.rights': 'لوما بيوتي مصر ذ.م.م. جميع الحقوق محفوظة.',
+    'footer.rights': 'دكتور كوزمتكس مصر ذ.م.م. جميع الحقوق محفوظة.',
     'footer.city': 'القاهرة، مصر',
   },
 };

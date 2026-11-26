@@ -361,6 +361,8 @@ with `__`.
 | `Scraper:Browser:TimeoutSeconds` | no | 45 | time allowed for one page in the browser, start-up included (10–180) |
 | `Scraper:Browser:NoSandbox` | no | false | starts the browser without its sandbox; only for a host where it cannot start otherwise (some service accounts), because it opens untrusted pages |
 | `Scraper:Browser:UserAgent` | no | the browser's own, minus "Headless" | what the browser calls itself; headless Chrome's default is turned away by some shops |
+| `Scraper:Schedule:Enabled` | no | true | whether this host carries out the automatic daily price check that an administrator sets in the Price Scraper tab (the time itself is kept in the database, on the shop's clock, Africa/Cairo); false switches the timer off on this host |
+| `Scraper:Schedule:PauseMilliseconds` | no | 1000 | wait between two pages of an automatic run, so a shop sees one visitor at a time (0–60000) |
 
 **Startup validation.** Outside Development the host refuses to start and prints **every** problem at once: no
 connection string, a signing key shorter than 32 characters, a relative path or a path inside the application folder
@@ -458,6 +460,7 @@ Insights) before go-live if you need retention beyond the event log.
 | reset email never arrives (the request answered 204); log "Sending an email failed" | Gmail rejected the login (wrong or revoked App Password, 2-Step Verification off) or the sender is not the account or a verified alias; or the message was queued when the pool recycled; or the 60-second per-account window, the daily Gmail limit or the spam folder | read the log entry for the SMTP reason, fix the setting, and request the link again after 60 seconds |
 | price scraper: "No price was found" for a shop that needs a browser; log "Price scraper: no Chrome or Edge was found" or "The browser at … could not be started" | no browser installed, a wrong `Scraper:Browser:ExecutablePath`, or Chrome cannot start under the pool identity | install Chrome or Edge or set the path; if it cannot start under the pool identity, give the identity a profile it can write, or set `Scraper:Browser:NoSandbox` to true (section 10); `Scraper:Browser:Enabled` false keeps plain requests only. The browser engine was verified on a developer machine, not under an IIS pool identity |
 | price scraper: "The shop refused the check", or "No price was found" for a shop behind bot protection (Cloudflare and similar) | the shop turns automated visitors away | open the page yourself; nothing here bypasses bot protection |
+| price scraper: the automatic check did not run at the set time (the tab's "Last run" is old; the log has no "Automatic price check started") | the site was not running then (the check runs inside the site; the pool in this guide is created with `startMode AlwaysRunning` and no idle timeout); or the site was down for more than an hour after the time (that day's run is let go, the next day's runs); or the schedule was saved after the time (it starts at the next one, the tab says which); or `Scraper:Schedule:Enabled` is false on this host | keep the pool running; compare the tab's "Next run" with the clock; read the log |
 
 **Retention and growth.** Completed idempotency rows, abandoned reservations and expired guest sessions are purged in
 batches every `Retention:IntervalMinutes`. Orders, status history, inventory audit, coupon redemptions and price-scraper
@@ -465,7 +468,11 @@ readings (one small row per check) grow without bound by design; plan database a
 
 **Price scraper.** Every check logs one Information line per engine: the host (never the full address), the engine, the outcome
 and the milliseconds. The browser engine keeps a throwaway profile for each page in a `luma-price-scraper` folder under the temp
-folder of the pool identity and deletes it afterwards; a folder left behind by a killed process can be deleted by hand.
+folder of the pool identity and deletes it afterwards; a folder left behind by a killed process can be deleted by hand. The
+automatic daily check (`DECISIONS.md` D-ADMIN-17) runs inside the site: twice a minute it looks at the schedule row and, when a
+run is due, reads every linked page one at a time with `Scraper:Schedule:PauseMilliseconds` between pages. It logs "Automatic
+price check started" and "finished: N of M pages showed a price". A pool recycle in the middle ends the run as interrupted (kept
+and shown in the tab) and the next day's run starts normally; it never applies a price.
 
 **Rotating secrets.** Changing `Quotes__SigningKey` only invalidates quotes in flight (at most
 `Pricing:QuoteLifetimeMinutes`): customers get a fresh quote, nothing is lost. Never delete old data-protection keys:
@@ -541,7 +548,7 @@ is recorded in the repository's `docs/backend/RELEASE_CHECKLIST.md`.
 - **Price scraper.** The server fetches addresses administrators type, so it refuses anything that is not a public web address on
   port 80 or 443, connects only to addresses it checked itself, follows at most 5 redirects, reads at most `Scraper:MaxPageKilobytes`
   of HTML and never runs a page itself. The browser engine runs the other shop's scripts in a throwaway profile with every request
-  vetted (`DECISIONS.md` D-ADMIN-16). A price changes only when an administrator applies a reading. One residual risk is recorded
+  vetted (`DECISIONS.md` D-ADMIN-16). A price changes only when an administrator applies a reading; the automatic daily check only reads. One residual risk is recorded
   there: the browser resolves names again by itself; if the pool must not reach internal systems, deny it that on the network as
   well, or set `Scraper:Browser:Enabled` to false. `Scraper:Browser:NoSandbox` weakens the browser's containment; leave it off
   unless the browser cannot start without it.

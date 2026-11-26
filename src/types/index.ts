@@ -152,6 +152,9 @@ export interface UserAddress extends ShippingAddress {
 export interface Order {
   id: string;
   orderNumber: string;
+  /** Set once the invoice has been issued (first print); permanent afterwards. */
+  invoiceNumber?: string | null;
+  invoiceIssuedAt?: string | null;
   customerId?: string;
   customerEmail?: string;
   shippingAddress: ShippingAddress;

@@ -1,4 +1,4 @@
-# Luma Beauty
+# Dr Cosmetics
 
 Bilingual (English / Arabic, RTL-aware) beauty storefront with cash-on-delivery checkout and an admin console.
 

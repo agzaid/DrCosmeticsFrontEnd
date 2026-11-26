@@ -183,7 +183,8 @@ describe('admin dashboard figures are honest and live', () => {
             assert.equal(counts[status], metrics.ordersByStatus[status], `UI count for ${status}`);
           }
           const listed = await e2e.page.$$eval('[data-low-stock-sku]', (rows) => rows.map((row) => row.getAttribute('data-low-stock-sku') ?? ''));
-          assert.deepEqual(new Set(listed), new Set(metrics.lowStockItems.map((item) => item.variantSku)));
+          // The overview shows one 10-row page (ADMIN_PAGE_SIZE); the API orders the same way.
+          assert.deepEqual(listed, metrics.lowStockItems.slice(0, 10).map((item) => item.variantSku));
           return { metrics, expected };
         };
 

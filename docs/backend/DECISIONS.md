@@ -859,11 +859,13 @@ is in EGP, recent and not applied yet, leaves alone any move of more than 50% of
 the likeliest cause is a wrong link or another pack size) and names each variant it left alone and why. A single *Apply* has no such
 limit: it is the administrator's decision, after a confirmation dialog.
 
-(e) *No automatic runs.* The reference rescraped and repriced on a schedule. Here nothing runs unless an administrator starts it.
+(e) *No repricing by itself.* The reference rescraped and repriced on a schedule. Here a price changes only when an administrator
+applies a reading, and a page is read only when an administrator asks for it (or has switched on the daily check of D-ADMIN-17).
 *Check all linked pages* is driven by the open page: one `POST /admin/scraper/scrape/{id}` per linked variant of a product that is
 not archived (never-checked first, then the longest unchecked; at most 2000), one after the other and a second apart, with a
-progress bar and a Stop button; closing the page stops it. No price is read or changed without an administrator, and no long job
-lives inside IIS, whose pool recycling would kill it.
+progress bar and a Stop button; closing the page stops it. The React console's *Price Scraper* tab runs the same loop against the
+JSON endpoints (`GET /api/v1/admin/scraper/targets`, then one `POST /api/v1/admin/scraper/{variantId}/check` per variant), and both
+surfaces call the same use cases.
 
 (f) *Known limitations.* A shop that turns automated visitors away is not read: Jumia's Cloudflare check ends as "No price was
 found", a plain 403 or 429 as "The shop refused the check"; nothing here tries to defeat bot protection. A price that depends on being
@@ -876,3 +878,47 @@ connection: it resolves a name again by itself, so the main page's real remote a
 discarded when it was not allowed, but a hostile DNS server could still steer a later script request of the page to an internal
 address. Where that matters set `Scraper:Browser:Enabled` to false, or keep the application pool's network access to internal
 systems closed. A read in the browser is given `Scraper:Browser:TimeoutSeconds` (45 by default) and only one runs at a time.
+
+**D-ADMIN-17 — scheduled price checks.** The React console's Price Scraper tab can switch on a daily check
+(`GET` / `PUT /api/v1/admin/scraper/schedule`) that reads every linked page by itself at a time of the shop's day (`HH:mm` on the
+shop's clock, `StoreTimeZone`: Africa/Cairo). It reads and never applies: a price changes only when an administrator applies a
+reading (D-ADMIN-16 (d)), so a wrong link or a shop's mistake cannot move a price while nobody is looking. This reverses the "nothing
+runs by itself" half of D-ADMIN-16 (e) at the owner's request; the other half stands. The server-rendered `/admin/scraper` page
+has no schedule control.
+
+(a) *Data.* One row, `ScraperSchedules` (`Id` = 1, held by `CK_ScraperSchedules_Singleton`; seeded off, at 03:00): `Enabled`,
+`TimeOfDayMinutes` (0–1439), who saved it and when, and the record of the latest run (started, finished, pages, pages done, pages with
+a price, interrupted). It is data and not configuration because administrators change it while the site runs.
+
+(b) *When it runs.* `ScrapeScheduleService`, a hosted service in the site's process like the retention purge, looks at the row every
+30 seconds, starting 20 seconds after the host does. `ScraperScheduleRules.DueRunUtc` says a run is due when the schedule is on, the
+latest moment of the chosen time is after the schedule was last saved (so what the page calls "next" is what happens: switching the
+schedule on at 03:10 does not start the 03:00 run), is at most an hour old (`CatchUp`: a check at an hour nobody chose is worse than a
+missed one), and no run has started for it. A shop day has exactly one moment: on the day the clocks jump over the chosen time
+(Egypt: 00:00 to 01:00) it is when the standard-time clock reads it, and on the day a time happens twice it is the later one.
+
+(c) *One run per moment.* The run is claimed with one guarded `UPDATE` (`LastRunStartedAtUtc` is the claim), so a restart or a second
+host cannot run a moment twice. A run reads the linked variants of products that are not archived through the same use case as the
+*Check all* button (never-checked first; at most 2000), one at a time with `Scraper:Schedule:PauseMilliseconds` (1000) between pages.
+A page that fails or shows no price is recorded on its link as ever and the rest go on. Progress is written after every page, so the
+tab can say "Scraping now: 12 of 38" (it looks at the schedule every 10 seconds while a run is going, and refreshes its list); the
+end is written under its own timeout even when the host is stopping.
+
+(d) *Interrupted runs.* A host stop (a pool recycle stops the host) ends the run as interrupted, keeping the pages done so far; a run
+whose host died without writing its end is closed as interrupted by the next host when it starts. An interrupted run is not resumed:
+the next day's moment runs as usual. This assumes one site process, as the retention purge and the e-mail queue already do; with two,
+the claim still stops a moment from running twice, but a starting host would close the other's running record.
+
+(e) *Not done.* One time a day, every day: no weekdays, no several times, no choice of products. No "apply automatically" option: it
+was not asked for, and an unattended price change needs a decision about who answers for a wrong price at night that has not been
+made. `Scraper:Schedule:Enabled` (false turns the timer off on a host, as the tests do) and `PauseMilliseconds` are the only settings.
+
+**D-ADMIN-18 — admin lists show ten rows a page.** Every list in the React admin console shows ten rows at a time instead of growing
+into an endless scroll. Products, inventory, orders, the file library and the price scraper are paged by their endpoints (`page`,
+`pageSize` = 10); brands, coupons, banners and the overview's low-stock list arrive whole and are cut in the browser at the same ten
+rows. One bar under each list (`AdminPagination`, `ADMIN_PAGE_SIZE`) shows previous, the page numbers and next, with the first and
+last page always one click away, plus the range ("Showing 1–10 of 61 coupons") where the tab does not already print its own count;
+nothing renders for a list that fits on one page. There is no per-list page size: the price scraper's earlier 25/50/100 choice was
+removed at the owner's request so every list behaves the same. A search or filter change starts again at page 1; a reload that finds
+the current page gone (a row archived, another administrator at work) steps back to the last page that exists; a page change scrolls
+the list back to the top. The endpoints and their page-size limits did not change.

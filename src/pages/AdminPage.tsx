@@ -22,7 +22,9 @@ import {
   Truck,
   Upload,
   X,
+  Printer,
 } from 'lucide-react';
+import { issueAndPrintInvoice } from '../utils/printInvoice';
 import { useAuth } from '../context/AuthContext';
 import { useDeliverySettings } from '../context/DeliverySettingsContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -54,8 +56,10 @@ import type {
   PromotionalBanner,
 } from '../types';
 import { AdminModal } from '../components/admin/AdminModal';
+import { ADMIN_PAGE_SIZE, AdminPagination } from '../components/admin/AdminPagination';
+import { ScraperTab } from '../components/admin/ScraperTab';
 
-type AdminTab = 'overview' | 'products' | 'brands' | 'orders' | 'inventory' | 'delivery' | 'discounts' | 'banners' | 'files';
+type AdminTab = 'overview' | 'products' | 'brands' | 'orders' | 'inventory' | 'scraper' | 'delivery' | 'discounts' | 'banners' | 'files';
 
 const SKIN_TYPE_OPTIONS = ['all', 'dry', 'oily', 'combination', 'sensitive'];
 const FINISH_OPTIONS = ['matte', 'dewy', 'radiant', 'satin', 'natural'];
@@ -74,7 +78,6 @@ const ORDER_STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
-const FILES_PAGE_SIZE = 20;
 
 /** Display labels for every enumerated value the admin UI prints (the API returns English keys). */
 const ENUM_LABELS: Record<string, LocalizedString> = {
@@ -533,6 +536,7 @@ export const AdminPage: React.FC = () => {
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandFormError, setBrandFormError] = useState<string | null>(null);
   const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
+  const [brandPage, setBrandPage] = useState(1);
 
   // Products
   const [products, setProducts] = useState<Product[]>([]);
@@ -590,12 +594,14 @@ export const AdminPage: React.FC = () => {
   const [discountSaving, setDiscountSaving] = useState(false);
   const [discountFormError, setDiscountFormError] = useState<string | null>(null);
   const [archivingCode, setArchivingCode] = useState<string | null>(null);
+  const [discountPage, setDiscountPage] = useState(1);
 
   // Banners
   const [banners, setBanners] = useState<PromotionalBanner[]>([]);
   const [bannersLoading, setBannersLoading] = useState(true);
   const [bannersError, setBannersError] = useState<string | null>(null);
   const [bannersSaving, setBannersSaving] = useState(false);
+  const [bannerPage, setBannerPage] = useState(1);
 
   // Files
   const [files, setFiles] = useState<StoredFile[]>([]);
@@ -616,12 +622,14 @@ export const AdminPage: React.FC = () => {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderPage, setOrderPage] = useState(1);
   const [orderBusyId, setOrderBusyId] = useState<string | null>(null);
 
   // Metrics
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [lowStockPage, setLowStockPage] = useState(1);
 
   const loadCatalog = useCallback(async (): Promise<void> => {
     try {
@@ -681,7 +689,7 @@ export const AdminPage: React.FC = () => {
           status: 'all',
           search: search.trim().length > 0 ? search.trim() : undefined,
           page,
-          pageSize: 60,
+          pageSize: ADMIN_PAGE_SIZE,
         });
         if (requestId !== productRequestId.current) {
           return;
@@ -730,7 +738,7 @@ export const AdminPage: React.FC = () => {
           category: filters.category === 'all' ? undefined : filters.category,
           brand: filters.brand === 'all' ? undefined : filters.brand,
           page: filters.page,
-          pageSize: 60,
+          pageSize: ADMIN_PAGE_SIZE,
         });
         if (requestId !== inventoryRequestId.current) {
           return;
@@ -796,7 +804,7 @@ export const AdminPage: React.FC = () => {
           kind: kind === 'all' ? undefined : kind,
           search: search.trim() === '' ? undefined : search.trim(),
           page,
-          pageSize: FILES_PAGE_SIZE,
+          pageSize: ADMIN_PAGE_SIZE,
         });
         setFiles(found.items);
         setFilesTotal(found.total);
@@ -829,15 +837,15 @@ export const AdminPage: React.FC = () => {
   }, [showToast, describeError]);
 
   const loadOrders = useCallback(
-    async (status: string, search: string): Promise<void> => {
+    async (status: string, search: string, page: number): Promise<void> => {
       setOrdersLoading(true);
       setOrdersError(null);
       try {
         const result = await adminApi.orders({
           status,
           search: search.trim().length > 0 ? search.trim() : undefined,
-          page: 1,
-          pageSize: 100,
+          page,
+          pageSize: ADMIN_PAGE_SIZE,
         });
         setOrders(result.orders);
         setOrderTotal(result.total);
@@ -871,14 +879,14 @@ export const AdminPage: React.FC = () => {
         'success',
       );
       void loadMetrics();
-      void loadOrders(orderStatusFilter, orderSearch);
+      void loadOrders(orderStatusFilter, orderSearch, orderPage);
       if (status === 'Cancelled') {
         void loadProducts(productSearch, productPage);
       }
     } catch (error) {
       showToast(describeError(error), 'error');
       // Another actor may have changed the order: show what is really stored.
-      void loadOrders(orderStatusFilter, orderSearch);
+      void loadOrders(orderStatusFilter, orderSearch, orderPage);
     } finally {
       setOrderBusyId(null);
     }
@@ -907,7 +915,19 @@ export const AdminPage: React.FC = () => {
       void loadMetrics();
     } catch (error) {
       showToast(describeError(error), 'error');
-      void loadOrders(orderStatusFilter, orderSearch);
+      void loadOrders(orderStatusFilter, orderSearch, orderPage);
+    } finally {
+      setOrderBusyId(null);
+    }
+  };
+
+  const printOrderInvoice = async (order: Order): Promise<void> => {
+    setOrderBusyId(order.id);
+    try {
+      const issued = await issueAndPrintInvoice(order, language, adminApi.issueInvoice);
+      setOrders((previous) => previous.map((entry) => (entry.id === issued.id ? issued : entry)));
+    } catch (error) {
+      showToast(describeError(error), 'error');
     } finally {
       setOrderBusyId(null);
     }
@@ -951,12 +971,12 @@ export const AdminPage: React.FC = () => {
     }
     const timer = window.setTimeout(
       () => {
-        void loadOrders(orderStatusFilter, orderSearch);
+        void loadOrders(orderStatusFilter, orderSearch, orderPage);
       },
       orderSearch.trim().length > 0 ? 300 : 0,
     );
     return () => window.clearTimeout(timer);
-  }, [isAdmin, activeTab, orderStatusFilter, orderSearch, loadOrders]);
+  }, [isAdmin, activeTab, orderStatusFilter, orderSearch, orderPage, loadOrders]);
 
   // Orders and checkouts change stock and coupon usage while this page stays open: re-read on tab entry.
   useEffect(() => {
@@ -1028,6 +1048,57 @@ export const AdminPage: React.FC = () => {
 
     return () => window.clearTimeout(timer);
   }, [isAdmin, activeTab, fileKind, fileSearch, filePage, loadFiles]);
+
+  // A row can disappear under the reader (an archive, or another administrator): never leave them on a page that is gone.
+  useEffect(() => {
+    if (!productsLoading && products.length === 0 && productTotal > 0 && productPage > 1) {
+      setProductPage(Math.max(1, productTotalPages));
+    }
+  }, [productsLoading, products.length, productTotal, productTotalPages, productPage]);
+
+  useEffect(() => {
+    if (!inventoryLoading && inventoryProducts.length === 0 && inventoryTotal > 0 && inventoryPage > 1) {
+      setInventoryPage(Math.max(1, inventoryTotalPages));
+    }
+  }, [inventoryLoading, inventoryProducts.length, inventoryTotal, inventoryTotalPages, inventoryPage]);
+
+  useEffect(() => {
+    if (!ordersLoading && orders.length === 0 && orderTotal > 0 && orderPage > 1) {
+      setOrderPage(Math.max(1, Math.ceil(orderTotal / ADMIN_PAGE_SIZE)));
+    }
+  }, [ordersLoading, orders.length, orderTotal, orderPage]);
+
+  useEffect(() => {
+    if (!filesLoading && files.length === 0 && filesTotal > 0 && filePage > 1) {
+      setFilePage(Math.max(1, Math.ceil(filesTotal / ADMIN_PAGE_SIZE)));
+    }
+  }, [filesLoading, files.length, filesTotal, filePage]);
+
+  // The same for the lists read whole and paged in the browser.
+  useEffect(() => {
+    if ((brandPage - 1) * ADMIN_PAGE_SIZE >= adminBrands.length) {
+      setBrandPage(Math.max(1, Math.ceil(adminBrands.length / ADMIN_PAGE_SIZE)));
+    }
+  }, [adminBrands.length, brandPage]);
+
+  useEffect(() => {
+    if ((discountPage - 1) * ADMIN_PAGE_SIZE >= discounts.length) {
+      setDiscountPage(Math.max(1, Math.ceil(discounts.length / ADMIN_PAGE_SIZE)));
+    }
+  }, [discounts.length, discountPage]);
+
+  useEffect(() => {
+    if ((bannerPage - 1) * ADMIN_PAGE_SIZE >= banners.length) {
+      setBannerPage(Math.max(1, Math.ceil(banners.length / ADMIN_PAGE_SIZE)));
+    }
+  }, [banners.length, bannerPage]);
+
+  useEffect(() => {
+    const count = metrics?.lowStockItems.length ?? 0;
+    if ((lowStockPage - 1) * ADMIN_PAGE_SIZE >= count) {
+      setLowStockPage(Math.max(1, Math.ceil(count / ADMIN_PAGE_SIZE)));
+    }
+  }, [metrics, lowStockPage]);
 
   const brandLabel = useCallback(
     (value: string): string => {
@@ -1629,12 +1700,26 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  // Brands, coupons and banners arrive whole, so their pages are cut here; products, inventory, orders, files and the
+  // scraper are paged by the server.
+  const brandPageCount = Math.max(1, Math.ceil(adminBrands.length / ADMIN_PAGE_SIZE));
+  const visibleBrands = adminBrands.slice((brandPage - 1) * ADMIN_PAGE_SIZE, brandPage * ADMIN_PAGE_SIZE);
+  const discountPageCount = Math.max(1, Math.ceil(discounts.length / ADMIN_PAGE_SIZE));
+  const visibleDiscounts = discounts.slice((discountPage - 1) * ADMIN_PAGE_SIZE, discountPage * ADMIN_PAGE_SIZE);
+  const bannerPageCount = Math.max(1, Math.ceil(banners.length / ADMIN_PAGE_SIZE));
+  const visibleBanners = banners.slice((bannerPage - 1) * ADMIN_PAGE_SIZE, bannerPage * ADMIN_PAGE_SIZE);
+  const lowStockItems = metrics?.lowStockItems ?? [];
+  const lowStockPageCount = Math.max(1, Math.ceil(lowStockItems.length / ADMIN_PAGE_SIZE));
+  const visibleLowStock = lowStockItems.slice((lowStockPage - 1) * ADMIN_PAGE_SIZE, lowStockPage * ADMIN_PAGE_SIZE);
+  const filePageCount = Math.max(1, Math.ceil(filesTotal / ADMIN_PAGE_SIZE));
+
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'overview', label: t('admin.tabOverview') },
     { id: 'products', label: t('admin.tabProducts') },
     { id: 'brands', label: t('admin.tabBrands') },
     { id: 'orders', label: t('admin.tabOrders') },
     { id: 'inventory', label: t('admin.tabInventory') },
+    { id: 'scraper', label: t('admin.tabScraper') },
     { id: 'delivery', label: t('admin.tabDelivery') },
     { id: 'discounts', label: t('admin.tabDiscounts') },
     { id: 'banners', label: t('admin.tabBanners') },
@@ -1812,13 +1897,13 @@ export const AdminPage: React.FC = () => {
                       {tr('0 < stock ≤ 5, active variants', '٠ < المخزون ≤ ٥، للدرجات المفعّلة')}
                     </span>
                   </div>
-                  {metrics.lowStockItems.length === 0 ? (
+                  {lowStockItems.length === 0 ? (
                     <p data-empty="low-stock" className="text-xs text-[#8B6E7E] py-4 text-center">
                       {tr('No low-stock variants.', 'لا توجد خيارات منخفضة المخزون.')}
                     </p>
                   ) : (
                     <div className="divide-y divide-[#F3E7E4]">
-                      {metrics.lowStockItems.map((item) => (
+                      {visibleLowStock.map((item) => (
                         <div
                           key={`${item.productId}-${item.variantSku}`}
                           data-low-stock-sku={item.variantSku}
@@ -1837,6 +1922,16 @@ export const AdminPage: React.FC = () => {
                       ))}
                     </div>
                   )}
+
+                  <AdminPagination
+                    id="low-stock"
+                    page={lowStockPage}
+                    totalPages={lowStockPageCount}
+                    total={lowStockItems.length}
+                    pageSize={ADMIN_PAGE_SIZE}
+                    onPage={setLowStockPage}
+                    unit={{ en: 'variants', ar: 'خيار' }}
+                  />
                 </div>
               </div>
             </>
@@ -2022,29 +2117,15 @@ export const AdminPage: React.FC = () => {
             </div>
           </div>
 
-          {productTotalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => setProductPage((page) => Math.max(1, page - 1))}
-                disabled={productPage <= 1 || productsLoading}
-                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
-              >
-                {tr('Previous', 'السابق')}
-              </button>
-              <span className="text-[#8B6E7E]">
-                {productPage} / {productTotalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setProductPage((page) => Math.min(productTotalPages, page + 1))}
-                disabled={productPage >= productTotalPages || productsLoading}
-                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
-              >
-                {tr('Next', 'التالي')}
-              </button>
-            </div>
-          )}
+          <AdminPagination
+            id="products"
+            page={productPage}
+            totalPages={productTotalPages}
+            total={productTotal}
+            pageSize={ADMIN_PAGE_SIZE}
+            onPage={setProductPage}
+            disabled={productsLoading}
+          />
         </div>
       )}
 
@@ -2107,74 +2188,85 @@ export const AdminPage: React.FC = () => {
               </div>
             )
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {adminBrands.map((brand) => (
-                <article
-                  key={brand.id}
-                  data-brand-admin={brand.id}
-                  data-brand-products={brand.productCount}
-                  className="bg-white rounded-2xl border border-[#E8D6D1] p-4 shadow-xs flex flex-col gap-3"
-                >
-                  <div className="flex items-start gap-3">
-                    {brand.logoUrl ? (
-                      <img
-                        src={mediaUrl(brand.logoUrl)}
-                        alt={brand.name}
-                        loading="lazy"
-                        className="w-12 h-12 object-cover rounded-xl border border-[#E8D6D1] shrink-0"
-                      />
-                    ) : (
-                      <span className="w-12 h-12 rounded-xl border border-dashed border-[#E8D6D1] bg-[#FAF7F5] flex items-center justify-center text-[#B49AA6] shrink-0">
-                        <Award className="w-5 h-5" aria-hidden="true" />
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-[#2D1E2F] break-words">{brand.name}</p>
-                      <p className="text-[11px] text-[#8B6E7E]">
-                        {brand.origin.trim().length > 0 ? brand.origin : tr('No origin set', 'لم يُحدد الأصل')}
-                      </p>
-                      <p className="text-[10px] font-mono text-[#B49AA6] break-all" dir="ltr">
-                        {brand.slug}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 border-t border-[#F0E3DF] pt-3">
-                    <span className="text-[11px] font-semibold text-[#503E48]">
-                      {tr(
-                        `${brand.productCount} product${brand.productCount === 1 ? '' : 's'}`,
-                        `${brand.productCount} منتج`,
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {visibleBrands.map((brand) => (
+                  <article
+                    key={brand.id}
+                    data-brand-admin={brand.id}
+                    data-brand-products={brand.productCount}
+                    className="bg-white rounded-2xl border border-[#E8D6D1] p-4 shadow-xs flex flex-col gap-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      {brand.logoUrl ? (
+                        <img
+                          src={mediaUrl(brand.logoUrl)}
+                          alt={brand.name}
+                          loading="lazy"
+                          className="w-12 h-12 object-cover rounded-xl border border-[#E8D6D1] shrink-0"
+                        />
+                      ) : (
+                        <span className="w-12 h-12 rounded-xl border border-dashed border-[#E8D6D1] bg-[#FAF7F5] flex items-center justify-center text-[#B49AA6] shrink-0">
+                          <Award className="w-5 h-5" aria-hidden="true" />
+                        </span>
                       )}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditBrand(brand)}
-                        className="p-1.5 hover:bg-[#F3E7E4] rounded-lg text-[#3B2332] transition"
-                        aria-label={`${tr('Edit brand', 'تعديل الماركة')}: ${brand.name}`}
-                        title={tr('Edit brand', 'تعديل الماركة')}
-                      >
-                        <Edit3 className="w-4 h-4" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteBrand(brand)}
-                        disabled={deletingBrandId === brand.id}
-                        className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition disabled:opacity-40"
-                        aria-label={`${tr('Delete brand', 'حذف الماركة')}: ${brand.name}`}
-                        title={tr('Delete brand', 'حذف الماركة')}
-                      >
-                        {deletingBrandId === brand.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" aria-hidden="true" />
-                        )}
-                      </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-[#2D1E2F] break-words">{brand.name}</p>
+                        <p className="text-[11px] text-[#8B6E7E]">
+                          {brand.origin.trim().length > 0 ? brand.origin : tr('No origin set', 'لم يُحدد الأصل')}
+                        </p>
+                        <p className="text-[10px] font-mono text-[#B49AA6] break-all" dir="ltr">
+                          {brand.slug}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+  
+                    <div className="flex items-center justify-between gap-3 border-t border-[#F0E3DF] pt-3">
+                      <span className="text-[11px] font-semibold text-[#503E48]">
+                        {tr(
+                          `${brand.productCount} product${brand.productCount === 1 ? '' : 's'}`,
+                          `${brand.productCount} منتج`,
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditBrand(brand)}
+                          className="p-1.5 hover:bg-[#F3E7E4] rounded-lg text-[#3B2332] transition"
+                          aria-label={`${tr('Edit brand', 'تعديل الماركة')}: ${brand.name}`}
+                          title={tr('Edit brand', 'تعديل الماركة')}
+                        >
+                          <Edit3 className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteBrand(brand)}
+                          disabled={deletingBrandId === brand.id}
+                          className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition disabled:opacity-40"
+                          aria-label={`${tr('Delete brand', 'حذف الماركة')}: ${brand.name}`}
+                          title={tr('Delete brand', 'حذف الماركة')}
+                        >
+                          {deletingBrandId === brand.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" aria-hidden="true" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <AdminPagination
+                id="brands"
+                page={brandPage}
+                totalPages={brandPageCount}
+                total={adminBrands.length}
+                pageSize={ADMIN_PAGE_SIZE}
+                onPage={setBrandPage}
+                unit={{ en: 'brands', ar: 'ماركة' }}
+              />
+            </>
           )}
         </div>
       )}
@@ -2187,7 +2279,10 @@ export const AdminPage: React.FC = () => {
               <input
                 type="text"
                 value={orderSearch}
-                onChange={(event) => setOrderSearch(event.target.value)}
+                onChange={(event) => {
+                  setOrderSearch(event.target.value);
+                  setOrderPage(1);
+                }}
                 aria-label={tr('Search orders', 'ابحث في الطلبات')}
                 placeholder={tr('Search by order number, name or phone...', 'ابحث برقم الطلب أو الاسم أو الهاتف...')}
                 className={`${INPUT_CLASS} pe-9`}
@@ -2197,7 +2292,10 @@ export const AdminPage: React.FC = () => {
 
             <select
               value={orderStatusFilter}
-              onChange={(event) => setOrderStatusFilter(event.target.value)}
+              onChange={(event) => {
+                setOrderStatusFilter(event.target.value);
+                setOrderPage(1);
+              }}
               aria-label={tr('Filter by status', 'تصفية حسب الحالة')}
               className={`${SELECT_CLASS} sm:w-48`}
             >
@@ -2211,7 +2309,7 @@ export const AdminPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => void loadOrders(orderStatusFilter, orderSearch)}
+              onClick={() => void loadOrders(orderStatusFilter, orderSearch, orderPage)}
               className="px-4 py-2.5 rounded-xl border border-[#E8D6D1] bg-white text-xs font-bold text-[#3B2332] hover:bg-[#F3E7E4] transition flex items-center justify-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
@@ -2230,7 +2328,7 @@ export const AdminPage: React.FC = () => {
               <span>{ordersError}</span>
               <button
                 type="button"
-                onClick={() => void loadOrders(orderStatusFilter, orderSearch)}
+                onClick={() => void loadOrders(orderStatusFilter, orderSearch, orderPage)}
                 className="px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-bold hover:bg-rose-100"
               >
                 {tr('Retry', 'إعادة المحاولة')}
@@ -2366,6 +2464,17 @@ export const AdminPage: React.FC = () => {
                               </button>
                             )}
 
+                            <button
+                              type="button"
+                              disabled={busy}
+                              aria-label={`${tr('Print invoice for order', 'طباعة فاتورة الطلب')} ${order.orderNumber}`}
+                              onClick={() => void printOrderInvoice(order)}
+                              className="w-full px-2 py-1.5 rounded-lg border border-[#E8D6D1] bg-white text-[#3B2332] text-[11px] font-bold hover:bg-[#F3E7E4] disabled:opacity-50 transition flex items-center justify-center gap-1"
+                            >
+                              <Printer className="w-3 h-3" aria-hidden="true" />
+                              {order.invoiceNumber ?? tr('Print invoice', 'طباعة الفاتورة')}
+                            </button>
+
                             {busy && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#8B263E] mx-auto" aria-hidden="true" />}
                           </div>
                         </td>
@@ -2376,6 +2485,16 @@ export const AdminPage: React.FC = () => {
               </table>
             )}
           </div>
+
+          <AdminPagination
+            id="orders"
+            page={orderPage}
+            totalPages={Math.max(1, Math.ceil(orderTotal / ADMIN_PAGE_SIZE))}
+            total={orderTotal}
+            pageSize={ADMIN_PAGE_SIZE}
+            onPage={setOrderPage}
+            disabled={ordersLoading}
+          />
         </div>
       )}
 
@@ -2614,30 +2733,21 @@ export const AdminPage: React.FC = () => {
             </div>
           )}
 
-          {inventoryTotalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => setInventoryPage((page) => Math.max(1, page - 1))}
-                disabled={inventoryPage <= 1 || inventoryLoading}
-                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
-              >
-                {tr('Previous', 'السابق')}
-              </button>
-              <span className="text-[#8B6E7E]">
-                {inventoryPage} / {inventoryTotalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setInventoryPage((page) => Math.min(inventoryTotalPages, page + 1))}
-                disabled={inventoryPage >= inventoryTotalPages || inventoryLoading}
-                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
-              >
-                {tr('Next', 'التالي')}
-              </button>
-            </div>
-          )}
+          <AdminPagination
+            id="inventory"
+            page={inventoryPage}
+            totalPages={inventoryTotalPages}
+            total={inventoryTotal}
+            pageSize={ADMIN_PAGE_SIZE}
+            onPage={setInventoryPage}
+            disabled={inventoryLoading}
+          />
         </div>
+      )}
+
+      {/* ---------------- 4a. PRICE SCRAPER TAB ---------------- */}
+      {activeTab === 'scraper' && (
+        <ScraperTab describeError={describeError} money={(amount) => formatMoney(amount, language)} />
       )}
 
       {/* ---------------- 4b. DELIVERY FEES TAB ---------------- */}
@@ -2841,7 +2951,7 @@ export const AdminPage: React.FC = () => {
             )
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {discounts.map((discount) => {
+              {visibleDiscounts.map((discount) => {
                 const expired = new Date(discount.expiryDate).getTime() <= Date.now();
                 const state = !discount.active ? 'archived' : expired ? 'expired' : 'active';
                 return (
@@ -2917,6 +3027,17 @@ export const AdminPage: React.FC = () => {
               })}
             </div>
           )}
+
+          <AdminPagination
+            id="discounts"
+            page={discountPage}
+            totalPages={discountPageCount}
+            total={discounts.length}
+            pageSize={ADMIN_PAGE_SIZE}
+            onPage={setDiscountPage}
+            unit={{ en: 'coupons', ar: 'كوبون' }}
+            disabled={discountsLoading}
+          />
         </div>
       )}
 
@@ -2975,7 +3096,7 @@ export const AdminPage: React.FC = () => {
             )
           ) : (
             <div className="space-y-4">
-              {banners.map((banner) => (
+              {visibleBanners.map((banner) => (
                 <div key={banner.id} data-banner={banner.id} className="p-4 rounded-2xl border border-[#E8D6D1] space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-mono text-[10px] font-bold uppercase text-[#8B263E]" dir="ltr">
@@ -3118,6 +3239,17 @@ export const AdminPage: React.FC = () => {
               ))}
             </div>
           )}
+
+          <AdminPagination
+            id="banners"
+            page={bannerPage}
+            totalPages={bannerPageCount}
+            total={banners.length}
+            pageSize={ADMIN_PAGE_SIZE}
+            onPage={setBannerPage}
+            unit={{ en: 'banners', ar: 'بانر' }}
+            disabled={bannersLoading}
+          />
         </div>
       )}
 
@@ -3314,29 +3446,16 @@ export const AdminPage: React.FC = () => {
             </div>
           )}
 
-          {filesTotal > FILES_PAGE_SIZE && (
-            <div className="flex items-center justify-center gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => setFilePage((page) => Math.max(1, page - 1))}
-                disabled={filePage <= 1 || filesLoading}
-                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
-              >
-                {tr('Previous', 'السابق')}
-              </button>
-              <span className="text-[#8B6E7E]">
-                {filePage} / {Math.ceil(filesTotal / FILES_PAGE_SIZE)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setFilePage((page) => Math.min(Math.ceil(filesTotal / FILES_PAGE_SIZE), page + 1))}
-                disabled={filePage >= Math.ceil(filesTotal / FILES_PAGE_SIZE) || filesLoading}
-                className="px-3 py-1.5 border border-[#E8D6D1] rounded-lg font-bold hover:bg-[#F3E7E4] disabled:opacity-40"
-              >
-                {tr('Next', 'التالي')}
-              </button>
-            </div>
-          )}
+          <AdminPagination
+            id="files"
+            page={filePage}
+            totalPages={filePageCount}
+            total={filesTotal}
+            pageSize={ADMIN_PAGE_SIZE}
+            onPage={setFilePage}
+            unit={{ en: 'files', ar: 'ملف' }}
+            disabled={filesLoading}
+          />
         </div>
       )}
 

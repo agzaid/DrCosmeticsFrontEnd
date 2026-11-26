@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   ArrowRight,
   ArrowLeft,
+  Printer,
   Clock
 } from 'lucide-react';
 import type { Order } from '../types';
@@ -17,6 +18,7 @@ import { checkoutApi } from '../api/api';
 import { mediaUrl } from '../api/config';
 import { useLanguage } from '../context/LanguageContext';
 import { formatPrice } from '../utils/shopLogic';
+import { issueAndPrintInvoice } from '../utils/printInvoice';
 import { OrderProgress } from '../components/orders/OrderProgress';
 
 interface OrderConfirmationPageProps {
@@ -35,6 +37,23 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
   const { t, l, language } = useLanguage();
   const [order, setOrder] = useState<Order | null>(initialOrder);
   const [error, setError] = useState<string | null>(null);
+  const [invoicing, setInvoicing] = useState(false);
+  const [invoiceError, setInvoiceError] = useState(false);
+
+  const handlePrintInvoice = async (): Promise<void> => {
+    if (!order) {
+      return;
+    }
+    setInvoicing(true);
+    setInvoiceError(false);
+    try {
+      setOrder(await issueAndPrintInvoice(order, language, checkoutApi.issueInvoice));
+    } catch {
+      setInvoiceError(true);
+    } finally {
+      setInvoicing(false);
+    }
+  };
 
   // Reload recovery: the confirmation view re-fetches the order instead of trusting only in-memory state.
   useEffect(() => {
@@ -251,12 +270,29 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
         </button>
 
         <button
+          type="button"
+          data-testid="print-invoice"
+          disabled={invoicing}
+          onClick={() => void handlePrintInvoice()}
+          className="w-full sm:w-auto px-8 py-3 bg-white border border-[#E8D6D1] text-[#3B2332] rounded-full text-xs font-bold hover:bg-[#F3E7E4] disabled:opacity-50 transition shadow-xs flex items-center justify-center gap-2"
+        >
+          <Printer className="w-3.5 h-3.5" />
+          <span>{language === 'ar' ? 'طباعة الفاتورة' : 'Print invoice'}</span>
+          {order.invoiceNumber && <span className="font-mono" dir="ltr">· {order.invoiceNumber}</span>}
+        </button>
+
+        <button
           onClick={onNavigateToAccount}
           className="w-full sm:w-auto px-8 py-3 bg-white border border-[#E8D6D1] text-[#3B2332] rounded-full text-xs font-bold hover:bg-[#F3E7E4] transition shadow-xs"
         >
           {t('orderSuccess.trackOrder')}
         </button>
       </div>
+      {invoiceError && (
+        <p role="alert" className="text-center text-xs text-rose-700">
+          {language === 'ar' ? 'تعذر إنشاء الفاتورة الآن. حاولي مرة أخرى.' : 'Could not prepare the invoice right now. Please try again.'}
+        </p>
+      )}
 
     </div>
   );

@@ -281,3 +281,150 @@ export interface DiscountRecord {
   currentUsage: number;
   active: boolean;
 }
+
+/** One price read from another shop's page. */
+export interface ScraperReading {
+  id: number;
+  price: number;
+  /** ISO code the page states for the price; null when it does not say. */
+  currency: string | null;
+  /** Where on the page the price was found: json-ld, meta, microdata or markup. */
+  strategy: string;
+  /** How the page was got: http, or browser (a real browser that runs the page's scripts). */
+  engine: string;
+  /** The product name the page gives, so a link to the wrong product is easy to spot. */
+  title: string | null;
+  readAtUtc: string;
+  appliedPrice: number | null;
+  appliedAtUtc: string | null;
+}
+
+/** Which way a check failed, as the server names it; null when there is no failure or the text is not one it worded. */
+export type ScraperFailureKind =
+  | 'NoPrice'
+  | 'Blocked'
+  | 'Refused'
+  | 'NotFound'
+  | 'Unreachable'
+  | 'TimedOut'
+  | 'TooLarge'
+  | 'NotAPage'
+  | 'Failed';
+
+/** One variant of the price scraper list: what the shop charges, the link to the other shop and the newest reading of it. */
+export interface ScraperRow {
+  variantId: string;
+  productId: string;
+  productName: LocalizedString;
+  imageUrl: string | null;
+  sku: string;
+  shade: LocalizedString | null;
+  size: string | null;
+  variantActive: boolean;
+  /** What the shop charges for the variant now. */
+  price: number;
+  /** The other shop's product page; null when the variant is not linked. */
+  url: string | null;
+  lastCheckedAtUtc: string | null;
+  /** The last check's failure (English), kept until a later check succeeds. */
+  lastError: string | null;
+  lastErrorKind: ScraperFailureKind | null;
+  latest: ScraperReading | null;
+  /** How much dearer (positive) or cheaper (negative) the other shop is, as a fraction of our price; null when they cannot be compared. */
+  gap: number | null;
+  /** True only when the variant is linked and its newest reading is in EGP, recent and usable. */
+  canApply: boolean;
+}
+
+export type ScraperState = 'all' | 'linked' | 'unlinked' | 'cheaper' | 'dearer' | 'failed';
+
+export type ScraperSort = 'product' | 'gap' | 'checked';
+
+export interface ScraperSearchParams {
+  search?: string;
+  state?: ScraperState;
+  sort?: ScraperSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PagedScraperRows extends Paged {
+  rows: ScraperRow[];
+}
+
+/** A linked variant, for the "check all" loop. */
+export interface ScraperTarget {
+  variantId: string;
+  label: string;
+}
+
+export interface ScraperHistory {
+  row: ScraperRow;
+  readings: ScraperReading[];
+}
+
+export interface ScraperLinkResult {
+  row: ScraperRow;
+  /** True when an existing link was removed. */
+  removed: boolean;
+}
+
+/** A check that finds no price is still a result (found: false); the reason is on the row. */
+export interface ScraperCheckResult {
+  found: boolean;
+  message: string;
+  checkedAtUtc: string;
+  row: ScraperRow;
+}
+
+export interface ScraperApplied {
+  variantId: string;
+  sku: string;
+  previousPrice: number;
+  newPrice: number;
+}
+
+export interface ScraperApplyResult {
+  applied: ScraperApplied;
+  row: ScraperRow;
+}
+
+export interface ScraperBulkSummary {
+  applied: number;
+  /** Readings whose price was already what the variant costs. */
+  unchanged: number;
+  skipped: { variantId: string; sku: string; reason: string }[];
+}
+
+/** How an automatic run of the price scraper went (or is going). */
+export interface ScraperRun {
+  startedAtUtc: string;
+  /** Null while the run is going. */
+  finishedAtUtc: string | null;
+  /** How many linked pages the run set out to read. */
+  total: number;
+  /** How many it has read so far, with or without finding a price. */
+  done: number;
+  /** How many of those pages showed a price. */
+  found: number;
+  /** The run ended before it had read every page (the host stopped, or something failed). */
+  interrupted: boolean;
+}
+
+/** The automatic daily price check. It only reads pages: no price changes by itself. */
+export interface ScraperSchedule {
+  enabled: boolean;
+  /** 24-hour HH:mm on the shop's clock. */
+  time: string;
+  /** The time zone that clock is in (an IANA name when the server knows one). */
+  timeZone: string;
+  /** When the next run starts; null while the schedule is off. */
+  nextRunAtUtc: string | null;
+  lastRun: ScraperRun | null;
+}
+
+export interface ScraperScheduleInput {
+  enabled: boolean;
+  /** 24-hour HH:mm on the shop's clock. */
+  time: string;
+}

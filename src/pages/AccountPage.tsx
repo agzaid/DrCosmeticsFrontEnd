@@ -9,16 +9,18 @@ import {
   ShieldCheck, 
   ChevronRight,
   ChevronDown,
+  Printer,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import type { Order, UserAddress } from '../types';
 import type { PasswordResetLink } from '../api/types';
-import { customerApi } from '../api/api';
+import { checkoutApi, customerApi } from '../api/api';
 import { ApiError } from '../api/httpClient';
 import { mediaUrl } from '../api/config';
 import { ADDRESS_ERROR_MESSAGES, formatPrice, validateShippingAddress } from '../utils/shopLogic';
+import { issueAndPrintInvoice } from '../utils/printInvoice';
 import { EGYPT_GOVERNORATES } from '../utils/egyptGovernorates';
 import { ErrorState } from '../components/common/ErrorState';
 import { useDialogBehavior } from '../components/common/useDialogBehavior';
@@ -301,6 +303,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
   const [ordersReload, setOrdersReload] = useState(0);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [invoicingOrderId, setInvoicingOrderId] = useState<string | null>(null);
 
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
@@ -508,6 +511,18 @@ export const AccountPage: React.FC<AccountPageProps> = ({
       showToast(error instanceof ApiError && language !== 'ar' ? error.detail : t('account.cancelFailed'), 'error');
     } finally {
       setCancellingOrderId(null);
+    }
+  };
+
+  const handlePrintInvoice = async (order: Order): Promise<void> => {
+    setInvoicingOrderId(order.id);
+    try {
+      const issued = await issueAndPrintInvoice(order, language, checkoutApi.issueInvoice);
+      setOrders((previous) => previous.map((entry) => (entry.id === issued.id ? issued : entry)));
+    } catch {
+      showToast(language === 'ar' ? 'تعذر إنشاء الفاتورة الآن' : 'Could not prepare the invoice right now', 'error');
+    } finally {
+      setInvoicingOrderId(null);
     }
   };
 
@@ -1015,6 +1030,20 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                           <p>{t('cart.deliveryFee')}: {order.deliveryFee === 0 ? t('shipping.free') : formatPrice(order.deliveryFee, language)}</p>
                           <p className="font-bold text-sm text-[#8B263E]">{t('cart.total')}: {formatPrice(order.total, language)}</p>
                         </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-[#E8D6D1] flex justify-end">
+                        <button
+                          type="button"
+                          data-testid={`print-invoice-${order.id}`}
+                          disabled={invoicingOrderId === order.id}
+                          onClick={() => void handlePrintInvoice(order)}
+                          className="px-4 py-2 rounded-xl border border-[#E8D6D1] bg-white text-[#3B2332] text-[11px] font-bold hover:bg-[#F3E7E4] disabled:opacity-50 transition flex items-center gap-1.5"
+                        >
+                          <Printer className="w-3.5 h-3.5" aria-hidden="true" />
+                          {language === 'ar' ? 'طباعة الفاتورة' : 'Print invoice'}
+                          {order.invoiceNumber && <span className="font-mono" dir="ltr">· {order.invoiceNumber}</span>}
+                        </button>
                       </div>
 
                       {(order.status === 'Pending' || order.status === 'Confirmed') &&

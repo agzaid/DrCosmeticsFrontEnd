@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const profile = await authApi.register(data);
       setUser(profile);
-      showToast(language === 'ar' ? 'أهلاً بك في لوما بيوتي!' : 'Welcome to Luma Beauty!', 'success');
+      showToast(language === 'ar' ? 'أهلاً بك في دكتور كوزمتكس!' : 'Welcome to Dr Cosmetics!', 'success');
       return { success: true };
     } catch (error) {
       return failureOf(error, language);

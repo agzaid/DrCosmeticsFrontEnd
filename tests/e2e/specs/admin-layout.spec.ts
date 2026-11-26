@@ -23,7 +23,7 @@ import {
   waitForToast,
 } from './admin-helpers.ts';
 
-const TABS = ['overview', 'products', 'brands', 'orders', 'inventory', 'delivery', 'discounts', 'banners'] as const;
+const TABS = ['overview', 'products', 'brands', 'orders', 'inventory', 'scraper', 'delivery', 'discounts', 'banners'] as const;
 const VIEWPORTS = [
   { width: 1280, height: 800 },
   { width: 1024, height: 768 },
@@ -320,6 +320,16 @@ describe('admin layout, keyboard and accessibility', () => {
           await e2e.page.click('[data-panel="overview"] button');
           await e2e.page.waitForSelector('[data-metric="totalSales"]');
           assert.equal(await e2e.page.$('[data-panel="overview"] [role="alert"]'), null);
+
+          // Price scraper list: a refused load -> error + Retry, no stale rows; Retry recovers.
+          const scraper = e2e.fulfillRequests(/\/api\/v1\/admin\/scraper\?/, 500, { times: 1 });
+          await openTab(e2e, 'scraper');
+          assert.equal(await waitForText(e2e.page, '[data-panel="scraper"] [role="alert"] span', (text) => text.length > 0), serverError);
+          assert.equal(await e2e.page.$('[data-panel="scraper"] [data-scraper-row]'), null, 'no stale rows');
+          assert.equal(scraper.hits, 1);
+          await clickText(e2e.page, '[data-panel="scraper"] [role="alert"] button', pick(lang, 'Retry', 'إعادة المحاولة'));
+          // The list is one ten-row page; any row proves the retry recovered it.
+          await e2e.page.waitForSelector('[data-panel="scraper"] [data-scraper-row]', { timeout: 15_000 });
 
           // Orders list: network failure -> localised error + Retry; no rows; Retry recovers.
           const orders = e2e.abortRequests(/\/api\/v1\/admin\/orders\?/, { times: 1 });

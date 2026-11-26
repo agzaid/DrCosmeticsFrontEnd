@@ -164,7 +164,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 text-left group"
           >
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#3B2332] to-[#603951] flex items-center justify-center text-[#FAF7F5] shadow-xs group-hover:scale-105 transition duration-300">
-              <span className="font-serif text-2xl font-bold tracking-tighter text-[#F3D8D3]">L</span>
+              <span className="font-serif text-2xl font-bold tracking-tighter text-[#F3D8D3]">D</span>
             </div>
             <div>
               <span className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#3B2332] group-hover:text-[#603951] transition">

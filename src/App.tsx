@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -13,12 +13,16 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { ProductDetailsModal } from './components/products/ProductDetailsModal';
 
 import { HomePage } from './pages/HomePage';
-import { ShopPage } from './pages/ShopPage';
-import { WishlistPage } from './pages/WishlistPage';
-import { CheckoutPage } from './pages/CheckoutPage';
-import { OrderConfirmationPage } from './pages/OrderConfirmationPage';
-import { AccountPage } from './pages/AccountPage';
-import { AdminPage } from './pages/AdminPage';
+// Every page but the landing page is split into its own chunk, so the first load carries only what the home page
+// needs; checkout and the administration page (the largest) download when first visited.
+const ShopPage = lazy(() => import('./pages/ShopPage').then((m) => ({ default: m.ShopPage })));
+const WishlistPage = lazy(() => import('./pages/WishlistPage').then((m) => ({ default: m.WishlistPage })));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })));
+const OrderConfirmationPage = lazy(() =>
+  import('./pages/OrderConfirmationPage').then((m) => ({ default: m.OrderConfirmationPage })),
+);
+const AccountPage = lazy(() => import('./pages/AccountPage').then((m) => ({ default: m.AccountPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 import type { Product, ProductCategory, PromotionalBanner, CategoryItem, BrandItem, Order, NavigationExtra } from './types';
 import type { PasswordResetLink } from './api/types';
@@ -180,14 +184,14 @@ function AppContent() {
         {isLoading ? (
           <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3">
             <div className="w-10 h-10 border-3 border-[#3B2332] border-t-[#E8998D] rounded-full animate-spin" />
-            <p className="text-xs font-serif font-bold text-[#8B6E7E] tracking-widest uppercase">Luma Beauty</p>
+            <p className="text-xs font-serif font-bold text-[#8B6E7E] tracking-widest uppercase">Dr Cosmetics</p>
           </div>
         ) : loadError && currentView !== 'admin' ? (
           <div className="px-4 py-16">
             <ErrorState onRetry={() => setReloadNonce((current) => current + 1)} />
           </div>
         ) : (
-          <>
+          <Suspense fallback={<div className="min-h-[50vh]" />}>
             {currentView === 'home' && (
               <HomePage
                 banners={banners}
@@ -249,7 +253,7 @@ function AppContent() {
             )}
 
             {currentView === 'admin' && <AdminPage />}
-          </>
+          </Suspense>
         )}
       </main>
 

@@ -130,20 +130,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
       )}
 
-      {/* 2. Service Notice Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="p-3.5 rounded-2xl bg-[#F4E9E6] border border-[#E8D6D1] flex items-center justify-between gap-3 text-xs text-[#503E48]">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <span className="font-medium">{t('banner.serviceNotice')}</span>
-          </div>
-          <span className="hidden sm:inline-block text-[11px] font-bold text-[#8B263E] bg-white px-2.5 py-1 rounded-lg border border-[#E8D6D1] shrink-0">
-            {t('home.currencyNote')}
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Category Shortcuts */}
+      {/* 2. Category Shortcuts */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -192,7 +179,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </section>
       ) : (
         <>
-          {/* 4. Featured Picks Section */}
+          {/* 3. Featured Picks Section */}
           <section data-testid="home-featured" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -221,7 +208,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </section>
 
-          {/* 5. Best Sellers Section */}
+          {/* 4. Best Sellers Section */}
           <section data-testid="home-bestsellers" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -250,7 +237,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </section>
 
-          {/* 6. New Arrivals */}
+          {/* 5. New Arrivals */}
           <section data-testid="home-newarrivals" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-6">
               <div>

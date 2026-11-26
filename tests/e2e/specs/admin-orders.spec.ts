@@ -295,7 +295,8 @@ describe('admin fulfilment', () => {
         const statuses = await e2e.page.$$eval('[data-panel="orders"] [data-order]', (rows) => rows.map((row) => row.getAttribute('data-order-status')));
         assert.ok(statuses.every((status) => status === 'Shipped'), `filter shows only Shipped, got ${statuses.join(',')}`);
         const apiShipped = (await allAdminOrders(admin)).filter((order) => order.status === 'Shipped').length;
-        assert.equal(shippedRows.length, Math.min(apiShipped, 100));
+        // The console shows one 10-row page (ADMIN_PAGE_SIZE), so the row count stops at 10.
+        assert.equal(shippedRows.length, Math.min(apiShipped, 10));
         await waitForText(e2e.page, '[data-field="order-count"]', (text) => text.includes(String(apiShipped)));
 
         await setValue(select, 'Pending');
